@@ -1,4 +1,11 @@
-import { MAX_PLAYERS, NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH, type ErrorCode, type Question } from '@preguntica/shared';
+import {
+  MAX_PLAYERS,
+  NICKNAME_MAX_LENGTH,
+  NICKNAME_MIN_LENGTH,
+  QUESTION_TIME_MS,
+  type ErrorCode,
+  type Question,
+} from '@preguntica/shared';
 import { notImplemented } from './not-implemented.js';
 import type { EngineResult, GameAction, GameState, NewGame, Player } from './types.js';
 
@@ -27,9 +34,12 @@ export function reduce(state: GameState, action: GameAction, now: number): Engin
     case 'disconnect':
       return disconnect(state, action.playerId);
     case 'start':
-    case 'answer':
+      return start(state, now);
     case 'timeUp':
+      return timeUp(state, now);
     case 'next':
+      return next(state, now);
+    case 'answer':
       return notImplemented(state, action, now);
   }
 }
@@ -65,6 +75,45 @@ function join(state: GameState, playerId: string, rawNickname: string): EngineRe
 function disconnect(state: GameState, playerId: string): EngineResult {
   if (!state.players.some((p) => p.id === playerId)) return failure('PLAYER_NOT_FOUND');
   return success(updatePlayer(state, playerId, { connected: false }));
+}
+
+function start(state: GameState, now: number): EngineResult {
+  if (state.phase === 'GENERATING') return failure('QUESTIONS_NOT_READY');
+  if (state.phase !== 'LOBBY') return failure('INVALID_PHASE');
+  if (!state.players.some((p) => p.connected)) return failure('NO_PLAYERS');
+  return success(beginQuestion(state, 0, now));
+}
+
+/** Stale or early timers are harmless no-ops. */
+function timeUp(state: GameState, now: number): EngineResult {
+  if (state.phase !== 'QUESTION' || state.questionEndsAt === null || now < state.questionEndsAt) {
+    return success(state);
+  }
+  return success(reveal(state));
+}
+
+function next(state: GameState, now: number): EngineResult {
+  if (state.phase === 'REVEAL') return success({ ...state, phase: 'LEADERBOARD' });
+  if (state.phase !== 'LEADERBOARD' || state.questionIndex === null) return failure('INVALID_PHASE');
+
+  const nextIndex = state.questionIndex + 1;
+  if (nextIndex >= state.totalQuestions) return success({ ...state, phase: 'PODIUM' });
+  return success(beginQuestion(state, nextIndex, now));
+}
+
+function beginQuestion(state: GameState, questionIndex: number, now: number): GameState {
+  return {
+    ...state,
+    phase: 'QUESTION',
+    questionIndex,
+    questionStartedAt: now,
+    questionEndsAt: now + QUESTION_TIME_MS,
+    answers: {},
+  };
+}
+
+function reveal(state: GameState): GameState {
+  return { ...state, phase: 'REVEAL' };
 }
 
 function updatePlayer(state: GameState, playerId: string, changes: Partial<Player>): GameState {
