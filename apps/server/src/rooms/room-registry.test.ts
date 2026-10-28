@@ -557,6 +557,27 @@ describe('SPEC §3 Límites: rooms idle for more than 1 h are removed', () => {
   });
 });
 
+describe('security review B3: a room code reused after a sweep', () => {
+  it('late questions of the swept room never reach the new room with the same code', async () => {
+    const first = deferred<Question[]>();
+    const second = deferred<Question[]>();
+    const pending = [first, second];
+    // random = 0 always yields the same code once it is free again.
+    const h = setup({ random: () => 0, getQuestions: () => pending.shift()?.promise ?? Promise.resolve(QUESTIONS) });
+    const old = created(h.registry.create(CONFIG, IP));
+    h.clock.now = T0 + ROOM_IDLE_TTL_MS + 1;
+    expect(h.registry.sweep()).toEqual([old.roomCode]);
+    const reused = created(h.registry.create({ ...CONFIG, topic: 'Otro' }, OTHER_IP));
+    expect(reused.roomCode).toBe(old.roomCode);
+
+    first.resolve(QUESTIONS);
+    await first.promise;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(current(h, reused.roomCode).phase).toBe('GENERATING');
+    expect(h.onGenerationError).not.toHaveBeenCalled();
+  });
+});
+
 describe('SPEC §5 hostToken never reaches other clients', () => {
   it('does not appear in any GameState passed to onChange nor in get()', async () => {
     const h = setup();

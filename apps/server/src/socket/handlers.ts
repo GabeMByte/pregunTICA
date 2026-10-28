@@ -88,6 +88,16 @@ export function broadcastChange(io: GameServer, { roomCode, previous, next }: Ro
   }
 }
 
+/**
+ * Call with the codes returned by RoomRegistry.sweep(): disconnects every socket of those rooms, so a
+ * stale host or player socket can never act on a new room that happens to reuse the code.
+ */
+export function evictRooms(io: GameServer, roomCodes: readonly string[]): void {
+  for (const roomCode of roomCodes) {
+    io.in([roomChannel(roomCode), hostChannel(roomCode)]).disconnectSockets(true);
+  }
+}
+
 /** Wire as RoomRegistry's onGenerationError: tells only the host; the room stays in GENERATING. */
 export function notifyGenerationError(io: GameServer, roomCode: string): void {
   send(io.to(hostChannel(roomCode)), { event: 'error', payload: { code: 'INTERNAL', message: ERROR_MESSAGES.INTERNAL } });

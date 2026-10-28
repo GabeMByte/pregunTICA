@@ -11,6 +11,7 @@ import {
   LeaderboardPayloadSchema,
   PlayerJoinedPayloadSchema,
   QUESTION_TIME_MS,
+  ROOM_IDLE_TTL_MS,
   QuestionRevealPayloadSchema,
   QuestionStartPayloadSchema,
   RoomStatePayloadSchema,
@@ -22,7 +23,7 @@ import {
 import { LocalQuestionSource } from '../ai/local-question-source.js';
 import { makeQuestions } from '../engine/test-helpers.js';
 import { RoomRegistry, type TimerHandle } from '../rooms/room-registry.js';
-import { broadcastChange, registerHandlers } from './handlers.js';
+import { broadcastChange, evictRooms, registerHandlers } from './handlers.js';
 import type { GameServer } from './types.js';
 
 const T0 = 1_700_000_000_000;
@@ -105,6 +106,7 @@ async function startServer(options: { trustProxy?: boolean } = {}) {
 
   const harness = {
     url,
+    io,
     registry,
     clock,
     /** Fires the pending (not cleared) question timer. */
@@ -495,5 +497,19 @@ describe('security review M2: an unexpected exception does not crash the server'
     expect(await errorCode(host, 0)).toBe('INTERNAL');
     spy.mockRestore();
     await createRoom(h);
+  });
+});
+
+describe('security review B3: swept rooms release their sockets', () => {
+  it('disconnects the host and players of a swept room so a reused code cannot be controlled by them', async () => {
+    const h = await startServer();
+    const { host, roomCode } = await createRoom(h);
+    const ana = await join(h, roomCode, 'Ana');
+    h.clock.now += ROOM_IDLE_TTL_MS + 1;
+    evictRooms(h.io, h.registry.sweep());
+    await vi.waitFor(() => {
+      expect(host.socket.connected).toBe(false);
+      expect(ana.player.socket.connected).toBe(false);
+    });
   });
 });

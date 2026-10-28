@@ -73,13 +73,9 @@ export class RoomRegistry {
 
     const roomCode = generateRoomCode(this.deps.random, (code) => this.rooms.has(code));
     const hostToken = this.deps.newToken();
-    this.rooms.set(roomCode, {
-      state: createGame({ code: roomCode, ...config }),
-      hostToken,
-      lastActivityAt: now,
-      timer: null,
-    });
-    this.generateQuestions(roomCode, config);
+    const room: Room = { state: createGame({ code: roomCode, ...config }), hostToken, lastActivityAt: now, timer: null };
+    this.rooms.set(roomCode, room);
+    this.generateQuestions(roomCode, room, config);
     return { ok: true, roomCode, hostToken };
   }
 
@@ -128,12 +124,13 @@ export class RoomRegistry {
     return removed;
   }
 
-  private generateQuestions(roomCode: string, config: RoomConfig): void {
+  private generateQuestions(roomCode: string, room: Room, config: RoomConfig): void {
     // async wrapper: a synchronous throw from the source becomes a rejection too.
     const load = async () => this.deps.questionSource.getQuestions(config);
     void load()
       .then((questions) => {
-        if (!this.rooms.has(roomCode)) return; // swept while generating
+        // Swept while generating, or the code now belongs to a new room: identity, not just the code.
+        if (this.rooms.get(roomCode) !== room) return;
         const result = this.dispatch(roomCode, { type: 'questionsReady', questions });
         if (!result.ok) throw new Error(`questionsReady failed: ${result.error}`);
       })
