@@ -62,7 +62,7 @@ describe('SPEC §3 GENERATING/LOBBY: players can join while questions generate',
     const state = ok(join(createGame(newGame()), playerId(1), 'Ana'));
     expect(state.phase).toBe('GENERATING');
     expect(state.players).toEqual([
-      { id: playerId(1), nickname: 'Ana', score: 0, streak: 0, connected: true, lastResult: null },
+      { id: playerId(1), nickname: 'Ana', score: 0, streak: 0, connected: true, lastResult: null, eligibleFrom: 0 },
     ]);
   });
 
@@ -147,11 +147,17 @@ describe(`SPEC §3 Límites: max ${MAX_PLAYERS} players per room`, () => {
   });
 });
 
-describe('SPEC §3 Máquina de estados: no new players once the game started', () => {
-  it.each(['QUESTION', 'REVEAL', 'LEADERBOARD', 'PODIUM'] as const)('rejects a new player in %s with INVALID_PHASE', (phase) => {
-    const state = midGame(phase);
-    expect(state.phase).toBe(phase);
+describe('SPEC §3 Jugadores tardíos: no new players once the game is over', () => {
+  it('rejects a new player in PODIUM with INVALID_PHASE', () => {
+    const state = midGame('PODIUM');
+    expect(state.phase).toBe('PODIUM');
     expect(err(join(state, playerId(99), 'Late'))).toBe('INVALID_PHASE');
+  });
+
+  it.each(['QUESTION', 'REVEAL', 'LEADERBOARD'] as const)('accepts a new player in %s (details in late-join.test.ts)', (phase) => {
+    const state = ok(join(midGame(phase), playerId(99), 'Late'));
+    expect(state.phase).toBe(phase);
+    expect(state.players).toHaveLength(3);
   });
 });
 

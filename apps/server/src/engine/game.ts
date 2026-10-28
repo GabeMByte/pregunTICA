@@ -59,7 +59,7 @@ function join(state: GameState, playerId: string, rawNickname: string): EngineRe
     return success(updatePlayer(state, playerId, { connected: true }));
   }
 
-  if (state.phase !== 'GENERATING' && state.phase !== 'LOBBY') return failure('INVALID_PHASE');
+  if (state.phase === 'PODIUM') return failure('INVALID_PHASE');
 
   const nickname = rawNickname.trim();
   if (nickname.length < NICKNAME_MIN_LENGTH || nickname.length > NICKNAME_MAX_LENGTH) {
@@ -69,7 +69,9 @@ function join(state: GameState, playerId: string, rawNickname: string): EngineRe
   if (state.players.some((p) => p.nickname.toLowerCase() === taken)) return failure('NICKNAME_TAKEN');
   if (state.players.length >= MAX_PLAYERS) return failure('ROOM_FULL');
 
-  const player: Player = { id: playerId, nickname, score: 0, streak: 0, connected: true, lastResult: null };
+  // SPEC §3 Jugadores tardíos: mid-game joiners take part from the next question.
+  const eligibleFrom = state.questionIndex === null ? 0 : state.questionIndex + 1;
+  const player: Player = { id: playerId, nickname, score: 0, streak: 0, connected: true, lastResult: null, eligibleFrom };
   return success({ ...state, players: [...state.players, player] });
 }
 
@@ -82,11 +84,14 @@ function answer(state: GameState, playerId: string, questionIndex: number, optio
   if (state.phase !== 'QUESTION' || state.questionStartedAt === null || state.questionEndsAt === null) {
     return failure('INVALID_PHASE');
   }
-  if (!hasPlayer(state, playerId)) return failure('PLAYER_NOT_FOUND');
+  const player = state.players.find((p) => p.id === playerId);
+  if (player === undefined) return failure('PLAYER_NOT_FOUND');
   if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= OPTIONS_PER_QUESTION) {
     return failure('INVALID_PAYLOAD');
   }
-  if (questionIndex !== state.questionIndex || now > state.questionEndsAt) return failure('INVALID_PHASE');
+  if (questionIndex !== state.questionIndex || now > state.questionEndsAt || !isEligible(player, questionIndex)) {
+    return failure('INVALID_PHASE');
+  }
   // SPEC §3: only the first answer counts.
   if (Object.hasOwn(state.answers, playerId)) return success(state);
 
@@ -130,17 +135,23 @@ function beginQuestion(state: GameState, questionIndex: number, now: number): Ga
 }
 
 function revealIfEveryoneAnswered(state: GameState): GameState {
-  if (state.phase !== 'QUESTION') return state;
-  const pending = state.players.some((p) => p.connected && !Object.hasOwn(state.answers, p.id));
+  if (state.phase !== 'QUESTION' || state.questionIndex === null) return state;
+  const questionIndex = state.questionIndex;
+  const pending = state.players.some(
+    (p) => p.connected && isEligible(p, questionIndex) && !Object.hasOwn(state.answers, p.id),
+  );
   return pending ? state : reveal(state);
 }
 
-/** Enters REVEAL and applies SPEC §3 Puntaje to every player, answered or not. */
+/** Enters REVEAL and applies SPEC §3 Puntaje to every eligible player, answered or not. */
 function reveal(state: GameState): GameState {
-  const question = state.questionIndex === null ? undefined : state.questions[state.questionIndex];
-  if (question === undefined) throw new Error('reveal() requires a current question');
+  const questionIndex = state.questionIndex;
+  const question = questionIndex === null ? undefined : state.questions[questionIndex];
+  if (questionIndex === null || question === undefined) throw new Error('reveal() requires a current question');
 
   const players = state.players.map((player): Player => {
+    // Late joiners did not take part in this question: leave them untouched.
+    if (!isEligible(player, questionIndex)) return player;
     const playerAnswer = state.answers[player.id];
     const correct = playerAnswer?.optionIndex === question.correctIndex;
     const { points, streak } = scoreAnswer({
@@ -163,6 +174,10 @@ function reveal(state: GameState): GameState {
 
 function updatePlayer(state: GameState, playerId: string, changes: Partial<Player>): GameState {
   return { ...state, players: state.players.map((p) => (p.id === playerId ? { ...p, ...changes } : p)) };
+}
+
+function isEligible(player: Player, questionIndex: number): boolean {
+  return questionIndex >= player.eligibleFrom;
 }
 
 function hasPlayer(state: GameState, playerId: string): boolean {

@@ -9,6 +9,8 @@ export interface Player {
   connected: boolean;
   /** Result of the last revealed question; null before the first reveal. */
   lastResult: AnswerResult | null;
+  /** Index of the first question this player takes part in (0 unless it joined mid-game). */
+  eligibleFrom: number;
 }
 
 export interface Answer {

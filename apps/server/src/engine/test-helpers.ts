@@ -108,6 +108,7 @@ export function makePlayer(n: number, overrides: Partial<Player> = {}): Player {
     streak: 0,
     connected: true,
     lastResult: null,
+    eligibleFrom: 0,
     ...overrides,
   };
 }
