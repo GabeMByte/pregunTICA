@@ -29,6 +29,12 @@ function questionState(phase: Phase = 'QUESTION', overrides: Partial<GameState> 
   });
 }
 
+/** Like questionState, but with no current question before the game starts, as the reducer produces. */
+function realisticState(phase: Phase): GameState {
+  const started = phase !== 'GENERATING' && phase !== 'LOBBY';
+  return questionState(phase, started ? {} : { questionIndex: null, questionStartedAt: null, questionEndsAt: null });
+}
+
 /** Players with given scores, in join order (player n has nickname PlayerN). */
 function rankedState(scores: number[], phase: Phase = 'LEADERBOARD'): GameState {
   return questionState(phase, {
@@ -85,7 +91,7 @@ describe('CLAUDE.md rule #2 / SPEC §3: toRoomState (public room view)', () => {
 
 describe('CLAUDE.md rule #2: toQuestionStart never includes the answer', () => {
   it.each(ALL_PHASES.filter((p) => p !== 'QUESTION'))('returns null in %s', (phase) => {
-    expect(toQuestionStart(questionState(phase))).toBeNull();
+    expect(toQuestionStart(realisticState(phase))).toBeNull();
   });
 
   it('returns the current question without the answer in QUESTION', () => {
@@ -111,8 +117,8 @@ describe('CLAUDE.md rule #2: toQuestionStart never includes the answer', () => {
 
 describe('SPEC §3 REVEAL: toReveal (correct answer, distribution, explanation)', () => {
   it.each(ALL_PHASES.filter((p) => p !== 'REVEAL'))('returns null in %s', (phase) => {
-    expect(toReveal(questionState(phase))).toBeNull();
-    expect(toReveal(questionState(phase), playerId(1))).toBeNull();
+    expect(toReveal(realisticState(phase))).toBeNull();
+    expect(toReveal(realisticState(phase), playerId(1))).toBeNull();
   });
 
   it('includes correctIndex, vote distribution and explanation', () => {

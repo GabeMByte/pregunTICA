@@ -43,10 +43,8 @@ export function toReveal(state: GameState, playerId?: string): QuestionRevealPay
   const question = currentQuestion(state);
   if (state.phase !== 'REVEAL' || question === null) return null;
 
-  const distribution = Array.from({ length: OPTIONS_PER_QUESTION }, () => 0);
-  for (const { optionIndex } of Object.values(state.answers)) {
-    distribution[optionIndex] = (distribution[optionIndex] ?? 0) + 1;
-  }
+  const votes = Object.values(state.answers);
+  const distribution = Array.from({ length: OPTIONS_PER_QUESTION }, (_, i) => votes.filter((a) => a.optionIndex === i).length);
 
   const payload: QuestionRevealPayload = {
     correctIndex: question.correctIndex,
