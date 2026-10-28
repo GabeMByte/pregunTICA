@@ -6,7 +6,7 @@ import {
   type ErrorCode,
   type Question,
 } from '@preguntica/shared';
-import { notImplemented } from './not-implemented.js';
+import { scoreAnswer } from './scoring.js';
 import type { EngineResult, GameAction, GameState, NewGame, Player } from './types.js';
 
 export function createGame({ code, topic, difficulty, count }: NewGame): GameState {
@@ -40,7 +40,7 @@ export function reduce(state: GameState, action: GameAction, now: number): Engin
     case 'next':
       return next(state, now);
     case 'answer':
-      return notImplemented(state, action, now);
+      return answer(state, action.playerId, action.questionIndex, action.optionIndex, now);
   }
 }
 
@@ -74,7 +74,20 @@ function join(state: GameState, playerId: string, rawNickname: string): EngineRe
 
 function disconnect(state: GameState, playerId: string): EngineResult {
   if (!state.players.some((p) => p.id === playerId)) return failure('PLAYER_NOT_FOUND');
-  return success(updatePlayer(state, playerId, { connected: false }));
+  return success(revealIfEveryoneAnswered(updatePlayer(state, playerId, { connected: false })));
+}
+
+function answer(state: GameState, playerId: string, questionIndex: number, optionIndex: number, now: number): EngineResult {
+  if (state.phase !== 'QUESTION' || state.questionStartedAt === null || state.questionEndsAt === null) {
+    return failure('INVALID_PHASE');
+  }
+  if (!state.players.some((p) => p.id === playerId)) return failure('PLAYER_NOT_FOUND');
+  if (questionIndex !== state.questionIndex || now > state.questionEndsAt) return failure('INVALID_PHASE');
+  // SPEC §3: only the first answer counts.
+  if (playerId in state.answers) return success(state);
+
+  const answers = { ...state.answers, [playerId]: { optionIndex, elapsedMs: now - state.questionStartedAt } };
+  return success(revealIfEveryoneAnswered({ ...state, answers }));
 }
 
 function start(state: GameState, now: number): EngineResult {
@@ -112,8 +125,36 @@ function beginQuestion(state: GameState, questionIndex: number, now: number): Ga
   };
 }
 
+function revealIfEveryoneAnswered(state: GameState): GameState {
+  if (state.phase !== 'QUESTION') return state;
+  const pending = state.players.some((p) => p.connected && !(p.id in state.answers));
+  return pending ? state : reveal(state);
+}
+
+/** Enters REVEAL and applies SPEC §3 Puntaje to every player, answered or not. */
 function reveal(state: GameState): GameState {
-  return { ...state, phase: 'REVEAL' };
+  const question = state.questionIndex === null ? undefined : state.questions[state.questionIndex];
+  if (question === undefined) throw new Error('reveal() requires a current question');
+
+  const players = state.players.map((player): Player => {
+    const playerAnswer = state.answers[player.id];
+    const correct = playerAnswer?.optionIndex === question.correctIndex;
+    const { points, streak } = scoreAnswer({
+      correct,
+      elapsedMs: playerAnswer?.elapsedMs ?? QUESTION_TIME_MS,
+      limitMs: QUESTION_TIME_MS,
+      previousStreak: player.streak,
+    });
+    const score = player.score + points;
+    return {
+      ...player,
+      score,
+      streak,
+      lastResult: { correct, points, streak, totalScore: score },
+    };
+  });
+
+  return { ...state, phase: 'REVEAL', players };
 }
 
 function updatePlayer(state: GameState, playerId: string, changes: Partial<Player>): GameState {
