@@ -441,3 +441,43 @@ describe('SPEC §3 Límites: 5 rooms per IP every 10 minutes', () => {
     expect(await createFrom(h, { 'x-forwarded-for': '203.0.113.2' })).toBe('CREATED');
   });
 });
+
+describe('security review findings', () => {
+  it('A1: a socket that joins as someone else leaves its previous player disconnected (no ghost players)', async () => {
+    const h = await startServer();
+    const { roomCode } = await createRoom(h);
+    const bot = await join(h, roomCode, 'bot0');
+    bot.player.socket.emit('player:join', { roomCode, nickname: 'bot1' });
+    await bot.player.next('player:joined', 1, (p) => PlayerJoinedPayloadSchema.parse(p).nickname === 'bot1');
+    const connected = h.registry.get(roomCode)?.players.map((p) => [p.nickname, p.connected]);
+    expect(connected).toEqual([
+      ['bot0', false],
+      ['bot1', true],
+    ]);
+  });
+
+  it('A1: a player socket that creates a room leaves its player disconnected in the old room', async () => {
+    const h = await startServer();
+    const { roomCode } = await createRoom(h);
+    const ana = await join(h, roomCode, 'Ana');
+    ana.player.socket.emit('host:create', { topic: 'Otra', count: 5, difficulty: 'easy' });
+    await ana.player.next('host:created');
+    expect(h.registry.get(roomCode)?.players[0]?.connected).toBe(false);
+  });
+
+  it('M1: re-sending player:join for a connected player does not broadcast to the room', async () => {
+    const h = await startServer();
+    const { host, roomCode } = await createRoom(h);
+    const ana = await join(h, roomCode, 'Ana', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    await host.next('room:state', 0, (p) => RoomStatePayloadSchema.parse(p).players.length === 1);
+    const since = host.mark();
+    const anaSince = ana.player.mark();
+    for (let i = 0; i < 5; i++) ana.player.socket.emit('player:join', { roomCode, nickname: 'Ana', playerId: ana.playerId });
+    // The rejoining socket still gets its snapshot.
+    await vi.waitFor(() => {
+      expect(ana.player.received('player:joined', anaSince)).toHaveLength(5);
+    });
+    await settle();
+    expect(host.received('room:state', since)).toHaveLength(0);
+  });
+});

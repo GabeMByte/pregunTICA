@@ -116,7 +116,10 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
       for (const message of snapshotFor(state, viewer)) send(self, message);
     };
 
-    /** Drops this socket's current identity (does not touch the engine). */
+    /**
+     * Drops this socket's current identity. If it was still the latest socket of a player, that player
+     * is disconnected in the engine too, so one socket can never leave "connected" ghosts behind.
+     */
     const unbind = (): void => {
       const { role, roomCode, playerId } = socket.data;
       if (roomCode !== undefined) {
@@ -124,8 +127,10 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
         void socket.leave(hostChannel(roomCode));
         if (role === 'player' && playerId !== undefined) {
           void socket.leave(playerChannel(roomCode, playerId));
-          const key = playerKey(roomCode, playerId);
-          if (playerSockets.get(key) === socket.id) playerSockets.delete(key);
+          if (currentPlayerIn(roomCode) === playerId) {
+            playerSockets.delete(playerKey(roomCode, playerId));
+            registry.dispatch(roomCode, { type: 'disconnect', playerId });
+          }
         }
       }
       socket.data = {};
@@ -138,6 +143,8 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
     };
 
     const bindPlayer = (roomCode: string, playerId: string): void => {
+      // Re-joining as the same player from the same socket: already bound, nothing to disconnect.
+      if (currentPlayerIn(roomCode) === playerId) return;
       unbind();
       const key = playerKey(roomCode, playerId);
       const previousSocket = playerSockets.get(key);
@@ -234,16 +241,7 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
       if (!result.ok) fail(result.error);
     });
 
-    socket.on('disconnect', () => {
-      const { role, roomCode } = socket.data;
-      // A disconnected host changes nothing: timers keep running and the room waits in REVEAL.
-      if (role === 'player' && roomCode !== undefined) {
-        const playerId = currentPlayerIn(roomCode);
-        if (playerId !== null) {
-          playerSockets.delete(playerKey(roomCode, playerId));
-          registry.dispatch(roomCode, { type: 'disconnect', playerId });
-        }
-      }
-    });
+    // A disconnected host changes nothing in the engine: timers keep running and the room waits in REVEAL.
+    socket.on('disconnect', unbind);
   });
 }
