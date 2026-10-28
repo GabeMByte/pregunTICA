@@ -1,0 +1,92 @@
+[
+  {
+    "prompt": "¿Cuál es el planeta más grande del sistema solar?",
+    "options": ["Júpiter", "Saturno", "Neptuno", "Tierra"],
+    "correctIndex": 0,
+    "explanation": "Júpiter tiene un diámetro unas 11 veces mayor que el de la Tierra."
+  },
+  {
+    "prompt": "¿Cuántos lados tiene un hexágono?",
+    "options": ["Cinco", "Seis", "Siete", "Ocho"],
+    "correctIndex": 1,
+    "explanation": "El prefijo griego «hexa» significa seis."
+  },
+  {
+    "prompt": "¿Qué gas absorben las plantas para hacer la fotosíntesis?",
+    "options": ["Oxígeno", "Nitrógeno", "Dióxido de carbono", "Helio"],
+    "correctIndex": 2,
+    "explanation": "Las plantas toman CO₂ y, con la luz solar, producen glucosa y liberan oxígeno."
+  },
+  {
+    "prompt": "¿En qué continente está Egipto?",
+    "options": ["Asia", "Europa", "Oceanía", "África"],
+    "correctIndex": 3,
+    "explanation": "Egipto está en el noreste de África, aunque la península del Sinaí está en Asia."
+  },
+  {
+    "prompt": "¿Cuál es el océano más grande del mundo?",
+    "options": ["Pacífico", "Atlántico", "Índico", "Ártico"],
+    "correctIndex": 0,
+    "explanation": "El Pacífico cubre cerca de un tercio de la superficie del planeta."
+  },
+  {
+    "prompt": "¿Quién pintó la Mona Lisa?",
+    "options": ["Miguel Ángel", "Leonardo da Vinci", "Rafael", "Botticelli"],
+    "correctIndex": 1,
+    "explanation": "Leonardo da Vinci la pintó a inicios del siglo XVI; hoy está en el Louvre."
+  },
+  {
+    "prompt": "¿Cuál es el símbolo químico del oro?",
+    "options": ["Ag", "Go", "Au", "Or"],
+    "correctIndex": 2,
+    "explanation": "Au viene del latín «aurum». Ag es el símbolo de la plata."
+  },
+  {
+    "prompt": "¿Cuántos minutos tiene un día?",
+    "options": ["1200", "1600", "3600", "1440"],
+    "correctIndex": 3,
+    "explanation": "24 horas por 60 minutos dan 1440 minutos."
+  },
+  {
+    "prompt": "¿Cuál es la capital de Costa Rica?",
+    "options": ["San José", "Cartago", "Alajuela", "Heredia"],
+    "correctIndex": 0,
+    "explanation": "San José es la capital desde 1823; antes lo fue Cartago."
+  },
+  {
+    "prompt": "¿Qué instrumento mide la presión atmosférica?",
+    "options": ["Termómetro", "Barómetro", "Higrómetro", "Anemómetro"],
+    "correctIndex": 1,
+    "explanation": "El barómetro mide la presión; el higrómetro, la humedad; el anemómetro, el viento."
+  },
+  {
+    "prompt": "¿Cuál es el hueso más largo del cuerpo humano?",
+    "options": ["Tibia", "Húmero", "Fémur", "Radio"],
+    "correctIndex": 2,
+    "explanation": "El fémur, en el muslo, es el hueso más largo y uno de los más fuertes."
+  },
+  {
+    "prompt": "¿En qué año llegó el ser humano a la Luna por primera vez?",
+    "options": ["1965", "1972", "1961", "1969"],
+    "correctIndex": 3,
+    "explanation": "La misión Apolo 11 alunizó en julio de 1969."
+  },
+  {
+    "prompt": "¿Qué lenguaje se ejecuta de forma nativa en los navegadores web?",
+    "options": ["JavaScript", "Python", "C++", "Java"],
+    "correctIndex": 0,
+    "explanation": "Todos los navegadores modernos incluyen un motor de JavaScript."
+  },
+  {
+    "prompt": "¿Cuál es el río más caudaloso del mundo?",
+    "options": ["Nilo", "Amazonas", "Misisipi", "Yangtsé"],
+    "correctIndex": 1,
+    "explanation": "El Amazonas lleva más agua que cualquier otro río del planeta."
+  },
+  {
+    "prompt": "¿Cuántos bits tiene un byte?",
+    "options": ["Cuatro", "Dieciséis", "Ocho", "Diez"],
+    "correctIndex": 2,
+    "explanation": "Un byte son 8 bits, suficientes para 256 valores distintos."
+  }
+]
