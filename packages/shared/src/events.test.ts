@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   ClientEvents,
   clientPayloadSchemas,
+  HostCreatedPayloadSchema,
   HostCreatePayloadSchema,
+  HostRejoinPayloadSchema,
   PlayerAnswerPayloadSchema,
+  PlayerJoinedPayloadSchema,
   PlayerJoinPayloadSchema,
   QuestionRevealPayloadSchema,
   QuestionStartPayloadSchema,
@@ -17,16 +20,63 @@ const PLAYER_ID = '3f1c2a5e-8b4d-4e6f-9a1b-2c3d4e5f6a7b';
 describe('event names', () => {
   it('match the spec (section 5)', () => {
     expect(Object.values(ClientEvents).sort()).toEqual(
-      ['host:create', 'host:next', 'host:start', 'player:answer', 'player:join'],
+      ['host:create', 'host:next', 'host:rejoin', 'host:start', 'player:answer', 'player:join'],
     );
     expect(Object.values(ServerEvents).sort()).toEqual(
-      ['error', 'game:end', 'leaderboard', 'question:reveal', 'question:start', 'room:state'],
+      ['error', 'game:end', 'host:created', 'leaderboard', 'player:joined', 'question:reveal', 'question:start', 'room:state'],
     );
   });
 
   it('have a payload schema for every event', () => {
     expect(Object.keys(clientPayloadSchemas).sort()).toEqual(Object.values(ClientEvents).sort());
     expect(Object.keys(serverPayloadSchemas).sort()).toEqual(Object.values(ServerEvents).sort());
+  });
+});
+
+const HOST_TOKEN = '9b2e4c1a-7d3f-4a8b-b6c5-1e2f3a4b5c6d';
+
+describe('host:rejoin', () => {
+  it('accepts a room code and a UUID host token', () => {
+    expect(HostRejoinPayloadSchema.parse({ roomCode: 'abc234', hostToken: HOST_TOKEN })).toEqual({
+      roomCode: 'ABC234',
+      hostToken: HOST_TOKEN,
+    });
+  });
+
+  it.each(['', 'not-a-uuid', PLAYER_ID.slice(0, -1)])('rejects host token %j', (hostToken) => {
+    expect(HostRejoinPayloadSchema.safeParse({ roomCode: 'ABC234', hostToken }).success).toBe(false);
+  });
+
+  it('rejects a missing token and unknown keys', () => {
+    expect(HostRejoinPayloadSchema.safeParse({ roomCode: 'ABC234' }).success).toBe(false);
+    expect(HostRejoinPayloadSchema.safeParse({ roomCode: 'ABC234', hostToken: HOST_TOKEN, admin: true }).success).toBe(false);
+  });
+});
+
+describe('host:created (sent only to the host)', () => {
+  it('carries the room code and the host token', () => {
+    expect(HostCreatedPayloadSchema.safeParse({ roomCode: 'ABC234', hostToken: HOST_TOKEN }).success).toBe(true);
+  });
+
+  it('rejects unknown keys', () => {
+    expect(HostCreatedPayloadSchema.safeParse({ roomCode: 'ABC234', hostToken: HOST_TOKEN, extra: 1 }).success).toBe(false);
+  });
+});
+
+describe('player:joined (sent only to that player)', () => {
+  it('carries the player id, the stored nickname and the waiting flag', () => {
+    const payload = { playerId: PLAYER_ID, nickname: 'Ana', waitingForNextQuestion: true };
+    expect(PlayerJoinedPayloadSchema.parse(payload)).toEqual(payload);
+  });
+
+  it('requires the waiting flag', () => {
+    expect(PlayerJoinedPayloadSchema.safeParse({ playerId: PLAYER_ID, nickname: 'Ana' }).success).toBe(false);
+  });
+
+  it('rejects unknown keys (e.g. a leaked score of other players)', () => {
+    expect(
+      PlayerJoinedPayloadSchema.safeParse({ playerId: PLAYER_ID, nickname: 'Ana', waitingForNextQuestion: false, hostToken: HOST_TOKEN }).success,
+    ).toBe(false);
   });
 });
 
