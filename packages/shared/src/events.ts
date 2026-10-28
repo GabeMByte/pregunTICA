@@ -157,6 +157,7 @@ export const GameEndPayloadSchema = z.strictObject({
 export const ErrorCodeSchema = z.enum([
   'INVALID_PAYLOAD',
   'ROOM_NOT_FOUND',
+  'PLAYER_NOT_FOUND',
   'ROOM_FULL',
   'NICKNAME_TAKEN',
   'NOT_HOST',
