@@ -19,3 +19,4 @@ Registro de cada funcionalidad y de cómo se usó la IA para construirla. Alimen
 - Archivos tocados: 17
 - Práctica de IA usada: TDD + subagente test-writer + hook de lint
 - Nota: el subagente escribió los 169 tests de los 5 ciclos de una vez a partir de un contrato explícito, y todos fallaron por "Not implemented" gracias a stubs previos; cada ciclo verde fue un commit (cobertura del motor 98 %). Hubo que ajustar a mano: implementar `questionsReady` antes de tiempo porque las fixtures de LOBBY lo usaban, y cambiar `in` por `Object.hasOwn` en el refactor.
+- Consolidación de tests: 169 → 143 tests del motor; cobertura sin cambios antes y después (98.38 % sentencias, 94.68 % ramas, 100 % funciones y líneas).

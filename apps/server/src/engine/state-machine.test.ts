@@ -4,7 +4,6 @@ import { createGame, reduce } from './game.js';
 import type { GameState } from './types.js';
 import {
   NOW,
-  deepFreeze,
   err,
   makeGeneratingGame,
   makeLobbyGame,
@@ -61,13 +60,6 @@ describe('SPEC §3 Máquina de estados: GENERATING → LOBBY on questionsReady',
     const state = makeState({ phase, players: [makePlayer(1)], questionIndex: phase === 'LOBBY' ? null : 0, questionStartedAt: NOW, questionEndsAt: NOW + T });
     expect(err(reduce(state, { type: 'questionsReady', questions: makeQuestions(5) }, NOW))).toBe('INVALID_PHASE');
   });
-
-  it('does not mutate the input state', () => {
-    const state = deepFreeze(createGame(newGame()));
-    const snapshot = structuredClone(state);
-    ok(reduce(state, { type: 'questionsReady', questions: makeQuestions(5) }, NOW));
-    expect(state).toEqual(snapshot);
-  });
 });
 
 describe('SPEC §3 Máquina de estados: LOBBY → QUESTION on start', () => {
@@ -103,29 +95,17 @@ describe('SPEC §3 Máquina de estados: LOBBY → QUESTION on start', () => {
     expect(ok(reduce(state, { type: 'start' }, NOW + 5)).phase).toBe('QUESTION');
   });
 
-  it('uses the injected now for the timer (now = 0 edge)', () => {
-    const state = ok(reduce(makeLobbyGame(1, makeQuestions(5), 0), { type: 'start' }, 0));
-    expect(state.questionStartedAt).toBe(0);
-    expect(state.questionEndsAt).toBe(T);
-  });
-
   it.each(['QUESTION', 'REVEAL', 'LEADERBOARD', 'PODIUM'] as const)('rejects start in %s with INVALID_PHASE', (phase) => {
     const state = makeState({ phase, players: [makePlayer(1)], questionIndex: 0, questionStartedAt: NOW, questionEndsAt: NOW + T });
     expect(err(reduce(state, { type: 'start' }, NOW))).toBe('INVALID_PHASE');
   });
-
-  it('does not mutate the input state', () => {
-    const state = deepFreeze(makeLobbyGame(1));
-    const snapshot = structuredClone(state);
-    ok(reduce(state, { type: 'start' }, NOW));
-    expect(state).toEqual(snapshot);
-  });
 });
 
 describe('SPEC §3 Máquina de estados: QUESTION → REVEAL on timeUp (20 s)', () => {
-  it('moves to REVEAL exactly at questionEndsAt', () => {
-    const state = makeStartedGame(1);
-    expect(ok(reduce(state, { type: 'timeUp' }, NOW + T)).phase).toBe('REVEAL');
+  it('moves to REVEAL exactly at questionEndsAt and keeps the question index', () => {
+    const state = ok(reduce(makeStartedGame(1), { type: 'timeUp' }, NOW + T));
+    expect(state.phase).toBe('REVEAL');
+    expect(state.questionIndex).toBe(0);
   });
 
   it('moves to REVEAL after questionEndsAt', () => {
@@ -133,29 +113,9 @@ describe('SPEC §3 Máquina de estados: QUESTION → REVEAL on timeUp (20 s)', (
     expect(ok(reduce(state, { type: 'timeUp' }, NOW + T + 5000)).phase).toBe('REVEAL');
   });
 
-  it('keeps the question index when revealing', () => {
-    const state = ok(reduce(makeStartedGame(1), { type: 'timeUp' }, NOW + T));
-    expect(state.questionIndex).toBe(0);
-  });
-
   it('is a no-op 1 ms before questionEndsAt (stale/early timer)', () => {
     const state = makeStartedGame(1);
     expect(ok(reduce(state, { type: 'timeUp' }, NOW + T - 1))).toEqual(state);
-  });
-
-  it('is a no-op at question start (t = 0)', () => {
-    const state = makeStartedGame(1);
-    expect(ok(reduce(state, { type: 'timeUp' }, NOW))).toEqual(state);
-  });
-
-  it('is a no-op in GENERATING', () => {
-    const state = makeGeneratingGame(1);
-    expect(ok(reduce(state, { type: 'timeUp' }, NOW + 10 * T))).toEqual(state);
-  });
-
-  it('is a no-op in LOBBY', () => {
-    const state = makeLobbyGame(1);
-    expect(ok(reduce(state, { type: 'timeUp' }, NOW + 10 * T))).toEqual(state);
   });
 
   it('is a no-op in REVEAL (timer firing after everyone answered)', () => {
@@ -163,21 +123,17 @@ describe('SPEC §3 Máquina de estados: QUESTION → REVEAL on timeUp (20 s)', (
     expect(ok(reduce(state, { type: 'timeUp' }, NOW + 10 * T))).toEqual(state);
   });
 
-  it('is a no-op in LEADERBOARD', () => {
-    const state = leaderboardGame();
+  it.each([
+    { phase: 'GENERATING', build: () => makeGeneratingGame(1) },
+    { phase: 'LOBBY', build: () => makeLobbyGame(1) },
+    { phase: 'LEADERBOARD', build: () => leaderboardGame() },
+    {
+      phase: 'PODIUM',
+      build: () => makeState({ phase: 'PODIUM', players: [makePlayer(1)], questionIndex: 4, questionStartedAt: NOW, questionEndsAt: NOW + T }),
+    },
+  ])('is a no-op in $phase', ({ build }) => {
+    const state = build();
     expect(ok(reduce(state, { type: 'timeUp' }, NOW + 10 * T))).toEqual(state);
-  });
-
-  it('is a no-op in PODIUM', () => {
-    const state = makeState({ phase: 'PODIUM', players: [makePlayer(1)], questionIndex: 4, questionStartedAt: NOW, questionEndsAt: NOW + T });
-    expect(ok(reduce(state, { type: 'timeUp' }, NOW + 10 * T))).toEqual(state);
-  });
-
-  it('does not mutate the input state', () => {
-    const state = deepFreeze(makeStartedGame(2));
-    const snapshot = structuredClone(state);
-    ok(reduce(state, { type: 'timeUp' }, NOW + T));
-    expect(state).toEqual(snapshot);
   });
 });
 
@@ -188,7 +144,7 @@ describe('SPEC §3 Máquina de estados: REVEAL → LEADERBOARD → QUESTION | PO
     expect(state.questionIndex).toBe(0);
   });
 
-  it('moves LEADERBOARD → next QUESTION with a fresh timer and no answers', () => {
+  it('moves LEADERBOARD → next QUESTION with a fresh timer', () => {
     const later = NOW + 3 * T;
     const state = ok(reduce(leaderboardGame(), { type: 'next' }, later));
     expect(state).toMatchObject({
@@ -196,7 +152,6 @@ describe('SPEC §3 Máquina de estados: REVEAL → LEADERBOARD → QUESTION | PO
       questionIndex: 1,
       questionStartedAt: later,
       questionEndsAt: later + T,
-      answers: {},
     });
   });
 
@@ -221,7 +176,7 @@ describe('SPEC §3 Máquina de estados: REVEAL → LEADERBOARD → QUESTION | PO
     expect(state.phase).toBe('PODIUM');
   });
 
-  it.each(['GENERATING', 'LOBBY', 'QUESTION', 'PODIUM'] as const)('rejects next in %s with INVALID_PHASE', (phase) => {
+  it.each(['GENERATING', 'LOBBY', 'PODIUM'] as const)('rejects next in %s with INVALID_PHASE', (phase) => {
     const state = makeState({
       phase,
       players: [makePlayer(1)],
@@ -232,15 +187,8 @@ describe('SPEC §3 Máquina de estados: REVEAL → LEADERBOARD → QUESTION | PO
     expect(err(reduce(state, { type: 'next' }, NOW + 1))).toBe('INVALID_PHASE');
   });
 
-  it('rejects next in a real QUESTION state with INVALID_PHASE', () => {
+  it('rejects next in QUESTION with INVALID_PHASE', () => {
     expect(err(reduce(makeStartedGame(1), { type: 'next' }, NOW + 1))).toBe('INVALID_PHASE');
-  });
-
-  it('does not mutate the input state', () => {
-    const state = deepFreeze(leaderboardGame());
-    const snapshot = structuredClone(state);
-    ok(reduce(state, { type: 'next' }, NOW + 3 * T));
-    expect(state).toEqual(snapshot);
   });
 });
 

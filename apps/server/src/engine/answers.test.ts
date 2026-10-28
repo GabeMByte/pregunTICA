@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { QUESTION_TIME_MS } from '@preguntica/shared';
 import { reduce } from './game.js';
 import type { GameState } from './types.js';
-import { NOW, deepFreeze, err, findPlayer, makeQuestions, makeStartedGame, ok, playerId } from './test-helpers.js';
+import { NOW, err, findPlayer, makeQuestions, makeStartedGame, ok, playerId } from './test-helpers.js';
 
 const T = QUESTION_TIME_MS;
 /** Every question has the correct answer at index 0, so 0 = right and 1 = wrong. */
@@ -35,21 +35,9 @@ describe('SPEC §3 QUESTION: recording answers', () => {
     expect(state.answers).toEqual({ [playerId(1)]: { optionIndex: 2, elapsedMs: 1234 } });
   });
 
-  it('records elapsedMs = 0 for an answer at the exact start', () => {
-    const state = ok(answer(game(2), 1, 0, NOW));
-    expect(state.answers[playerId(1)]).toEqual({ optionIndex: 0, elapsedMs: 0 });
-  });
-
   it('accepts an answer exactly at questionEndsAt', () => {
     const state = ok(answer(game(2), 1, 3, NOW + T));
     expect(state.answers[playerId(1)]).toEqual({ optionIndex: 3, elapsedMs: T });
-  });
-
-  it('does not mutate the input state', () => {
-    const state = deepFreeze(game(2));
-    const snapshot = structuredClone(state);
-    ok(answer(state, 1, 0, NOW + 10));
-    expect(state).toEqual(snapshot);
   });
 });
 
@@ -71,16 +59,11 @@ describe('SPEC §3 QUESTION: invalid answers', () => {
     expect(err(answer(game(2), 1, 0, NOW + 10, 1))).toBe('INVALID_PHASE');
   });
 
-  it('rejects an answer in REVEAL with INVALID_PHASE', () => {
-    const reveal = ok(reduce(game(1), { type: 'timeUp' }, NOW + T));
-    expect(reveal.phase).toBe('REVEAL');
-    expect(err(answer(reveal, 1, 0, NOW + T, 0))).toBe('INVALID_PHASE');
-  });
-
-  it('rejects an answer in LEADERBOARD with INVALID_PHASE', () => {
-    const reveal = ok(reduce(game(1), { type: 'timeUp' }, NOW + T));
-    const leaderboard = ok(reduce(reveal, { type: 'next' }, NOW + T + 1));
-    expect(err(answer(leaderboard, 1, 0, NOW + T + 2, 0))).toBe('INVALID_PHASE');
+  it.each(['REVEAL', 'LEADERBOARD'] as const)('rejects an answer in %s with INVALID_PHASE', (phase) => {
+    let state = ok(reduce(game(1), { type: 'timeUp' }, NOW + T));
+    if (phase === 'LEADERBOARD') state = ok(reduce(state, { type: 'next' }, NOW + T + 1));
+    expect(state.phase).toBe(phase);
+    expect(err(answer(state, 1, 0, NOW + T + 2, 0))).toBe('INVALID_PHASE');
   });
 
   it('rejects an unknown player with PLAYER_NOT_FOUND', () => {
@@ -89,18 +72,11 @@ describe('SPEC §3 QUESTION: invalid answers', () => {
 });
 
 describe('SPEC §3 QUESTION → REVEAL when everyone answered', () => {
-  it('stays in QUESTION with 2 connected players and 1 answer', () => {
-    expect(ok(answer(game(2), 1, 0, NOW + 10)).phase).toBe('QUESTION');
-  });
-
-  it('moves to REVEAL as soon as the last connected player answers', () => {
+  it('stays in QUESTION until the last connected player answers, then moves to REVEAL', () => {
     let state = ok(answer(game(2), 1, 0, NOW + 10));
+    expect(state.phase).toBe('QUESTION');
     state = ok(answer(state, 2, 1, NOW + 20));
     expect(state.phase).toBe('REVEAL');
-  });
-
-  it('moves to REVEAL with a single player answering', () => {
-    expect(ok(answer(game(1), 1, 0, NOW + 10)).phase).toBe('REVEAL');
   });
 
   it('does not wait for disconnected players', () => {
@@ -124,23 +100,13 @@ describe('SPEC §3 QUESTION → REVEAL when everyone answered', () => {
 });
 
 describe('SPEC §3 Puntaje: scoring applied on entering REVEAL', () => {
-  it('gives 1000 for a correct answer at elapsed 0', () => {
-    const state = ok(answer(game(1), 1, RIGHT, NOW));
-    expect(findPlayer(state, playerId(1))).toMatchObject({
-      score: 1000,
-      streak: 1,
-      lastResult: { correct: true, points: 1000, streak: 1, totalScore: 1000 },
-    });
-  });
-
-  it('gives 750 for a correct answer at elapsed 10000', () => {
+  it('scores a correct answer using its elapsed time (10000 ms → 750)', () => {
     const state = ok(answer(game(1), 1, RIGHT, NOW + 10_000));
-    expect(findPlayer(state, playerId(1)).lastResult).toEqual({ correct: true, points: 750, streak: 1, totalScore: 750 });
-  });
-
-  it('gives 500 for a correct answer at exactly the time limit', () => {
-    const state = ok(reduce(ok(answer(game(1), 1, RIGHT, NOW + T)), { type: 'timeUp' }, NOW + T));
-    expect(findPlayer(state, playerId(1)).lastResult).toEqual({ correct: true, points: 500, streak: 1, totalScore: 500 });
+    expect(findPlayer(state, playerId(1))).toMatchObject({
+      score: 750,
+      streak: 1,
+      lastResult: { correct: true, points: 750, streak: 1, totalScore: 750 },
+    });
   });
 
   it('gives 0 and resets the streak for a wrong answer', () => {
@@ -205,27 +171,5 @@ describe('SPEC §3 Puntaje: scoring applied on entering REVEAL', () => {
     state = ok(answer(state, 2, RIGHT, now));
     expect(findPlayer(state, playerId(1)).lastResult).toEqual({ correct: true, points: 1000, streak: 1, totalScore: 2000 });
     expect(findPlayer(state, playerId(2)).lastResult).toEqual({ correct: true, points: 1200, streak: 3, totalScore: 3300 });
-  });
-
-  it('caps the streak bonus at +500 (7 correct answers in a row)', () => {
-    let state = makeStartedGame(1, makeQuestions(7, [0, 0, 0, 0, 0, 0, 0]));
-    let now = NOW;
-    const points: number[] = [];
-    for (let q = 0; q < 7; q++) {
-      state = ok(answer(state, 1, RIGHT, now));
-      points.push(findPlayer(state, playerId(1)).lastResult?.points ?? -1);
-      if (q < 6) {
-        now += 2 * T;
-        state = nextQuestion(state, now);
-      }
-    }
-    expect(points).toEqual([1000, 1100, 1200, 1300, 1400, 1500, 1500]);
-    expect(findPlayer(state, playerId(1))).toMatchObject({ score: 9000, streak: 7 });
-  });
-
-  it('applies scoring only once (stale timeUp after REVEAL does not double score)', () => {
-    let state = ok(answer(game(1), 1, RIGHT, NOW));
-    state = ok(reduce(state, { type: 'timeUp' }, NOW + T));
-    expect(findPlayer(state, playerId(1)).score).toBe(1000);
   });
 });

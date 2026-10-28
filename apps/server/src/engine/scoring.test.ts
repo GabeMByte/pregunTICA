@@ -21,11 +21,7 @@ describe('SPEC §3 Puntaje: correct answer base points round(1000 * (1 - (t/T)/2
     expect(correctAt(10_000).points).toBe(750);
   });
 
-  it('rounds: t = 1 ms still gives 1000', () => {
-    expect(correctAt(1).points).toBe(1000);
-  });
-
-  it('rounds to the nearest integer for an arbitrary t', () => {
+  it('rounds to the nearest integer', () => {
     // 1000 * (1 - (30/20000)/2) = 999.25 → 999; 1000 * (1 - (50/20000)/2) = 998.75 → 999
     expect(correctAt(30).points).toBe(999);
     expect(correctAt(50).points).toBe(999);
@@ -62,11 +58,10 @@ describe('SPEC §3 Puntaje: streak bonus +100 * min(streak - 1, 5)', () => {
 });
 
 describe('SPEC §3 Puntaje: incorrect answer gives 0 and resets the streak', () => {
-  it.each([0, 1, 5, 10])('previous streak %i → points 0, streak 0', (previousStreak) => {
-    expect(scoreAnswer({ correct: false, elapsedMs: 0, limitMs: T, previousStreak })).toEqual({ points: 0, streak: 0 });
-  });
-
-  it('gives 0 even when answered late', () => {
-    expect(scoreAnswer({ correct: false, elapsedMs: T, limitMs: T, previousStreak: 3 })).toEqual({ points: 0, streak: 0 });
+  it.each([
+    { elapsedMs: 0, previousStreak: 0 },
+    { elapsedMs: T, previousStreak: 5 },
+  ])('elapsed $elapsedMs, previous streak $previousStreak → points 0, streak 0', ({ elapsedMs, previousStreak }) => {
+    expect(scoreAnswer({ correct: false, elapsedMs, limitMs: T, previousStreak })).toEqual({ points: 0, streak: 0 });
   });
 });

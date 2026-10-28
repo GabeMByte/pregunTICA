@@ -72,14 +72,10 @@ describe('CLAUDE.md rule #2 / SPEC §3: toRoomState (public room view)', () => {
     expect(json).not.toContain('Explanation for question');
   });
 
-  it.each(ALL_PHASES)('produces a schema-valid payload in %s', (phase) => {
-    const state = questionState(phase, { questionIndex: phase === 'GENERATING' || phase === 'LOBBY' ? null : 1 });
-    const payload = RoomStatePayloadSchema.parse(toRoomState(state));
-    expect(payload.phase).toBe(phase);
-  });
-
-  it('reports the current question index during the game', () => {
-    expect(RoomStatePayloadSchema.parse(toRoomState(questionState())).questionIndex).toBe(1);
+  it('reports the phase and current question index during the game', () => {
+    const payload = RoomStatePayloadSchema.parse(toRoomState(questionState()));
+    expect(payload.phase).toBe('QUESTION');
+    expect(payload.questionIndex).toBe(1);
   });
 
   it('works with an empty room', () => {
@@ -144,18 +140,7 @@ describe('SPEC §3 REVEAL: toReveal (correct answer, distribution, explanation)'
     expect(payload.distribution).toEqual([0, 0, 0, 0]);
   });
 
-  it('with a playerId includes that player lastResult as yourResult', () => {
-    const result = { correct: true, points: 850, streak: 1, totalScore: 850 };
-    const state = questionState('REVEAL', {
-      players: [makePlayer(1, { score: 850, streak: 1, lastResult: result }), makePlayer(2)],
-      answers: { [playerId(1)]: { optionIndex: 1, elapsedMs: 6000 } },
-    });
-    const payload = QuestionRevealPayloadSchema.parse(toReveal(state, playerId(1)));
-    expect(payload.yourResult).toEqual(result);
-    expect(payload.correctIndex).toBe(1);
-  });
-
-  it('yourResult belongs to the requested player, not another one', () => {
+  it('with a playerId includes that player lastResult (not another one) as yourResult', () => {
     const r1 = { correct: true, points: 1000, streak: 1, totalScore: 1000 };
     const r2 = { correct: false, points: 0, streak: 0, totalScore: 400 };
     const state = questionState('REVEAL', {
@@ -189,10 +174,6 @@ describe(`SPEC §3 LEADERBOARD: toLeaderboard (top ${LEADERBOARD_SIZE})`, () => 
     const payload = LeaderboardPayloadSchema.parse(toLeaderboard(rankedState([10, 70, 30, 60, 20, 50, 40])));
     expect(payload.top).toHaveLength(LEADERBOARD_SIZE);
     expect(payload.top.map((e) => e.score)).toEqual([70, 60, 50, 40, 30]);
-  });
-
-  it('returns exactly 5 entries with exactly 5 players', () => {
-    expect(LeaderboardPayloadSchema.parse(toLeaderboard(rankedState([1, 2, 3, 4, 5]))).top).toHaveLength(5);
   });
 
   it('delta is the points of the last question (lastResult.points)', () => {

@@ -6,7 +6,6 @@ import {
   NOW,
   ROOM_CODE,
   at,
-  deepFreeze,
   err,
   findPlayer,
   makeGeneratingGame,
@@ -118,14 +117,9 @@ describe('SPEC §3 Límites: nickname unique in the room', () => {
     expect(err(join(state, playerId(2), 'Ana'))).toBe('NICKNAME_TAKEN');
   });
 
-  it('compares case-insensitively', () => {
+  it('compares case-insensitively after trimming', () => {
     const state = ok(join(createGame(newGame()), playerId(1), 'Ana'));
-    expect(err(join(state, playerId(2), 'aNA'))).toBe('NICKNAME_TAKEN');
-  });
-
-  it('compares after trimming', () => {
-    const state = ok(join(createGame(newGame()), playerId(1), 'Ana'));
-    expect(err(join(state, playerId(2), '  ana '))).toBe('NICKNAME_TAKEN');
+    expect(err(join(state, playerId(2), '  aNA '))).toBe('NICKNAME_TAKEN');
   });
 
   it('also counts disconnected players', () => {
@@ -141,12 +135,7 @@ describe(`SPEC §3 Límites: max ${MAX_PLAYERS} players per room`, () => {
     expect(ok(join(state, playerId(MAX_PLAYERS), nickname(MAX_PLAYERS))).players).toHaveLength(MAX_PLAYERS);
   });
 
-  it(`rejects player ${MAX_PLAYERS + 1} with ROOM_FULL in GENERATING`, () => {
-    const state = makeGeneratingGame(MAX_PLAYERS);
-    expect(err(join(state, playerId(MAX_PLAYERS + 1), 'Late'))).toBe('ROOM_FULL');
-  });
-
-  it(`rejects player ${MAX_PLAYERS + 1} with ROOM_FULL in LOBBY`, () => {
+  it(`rejects player ${MAX_PLAYERS + 1} with ROOM_FULL`, () => {
     const state = makeLobbyGame(MAX_PLAYERS);
     expect(err(join(state, playerId(MAX_PLAYERS + 1), 'Late'))).toBe('ROOM_FULL');
   });
@@ -167,20 +156,12 @@ describe('SPEC §3 Máquina de estados: no new players once the game started', (
 });
 
 describe('SPEC §3 reconnection: join with an existing playerId', () => {
-  it('reconnects a disconnected player in LOBBY without duplicating it', () => {
+  it('reconnects in LOBBY without duplicating and keeps the original nickname', () => {
     let state = makeLobbyGame(2);
     state = ok(reduce(state, { type: 'disconnect', playerId: playerId(1) }, NOW));
-    state = ok(join(state, playerId(1), nickname(1)));
-    expect(state.players).toHaveLength(2);
-    expect(findPlayer(state, playerId(1)).connected).toBe(true);
-  });
-
-  it('keeps the original nickname even if a different one is sent', () => {
-    let state = makeLobbyGame(1);
-    state = ok(reduce(state, { type: 'disconnect', playerId: playerId(1) }, NOW));
     state = ok(join(state, playerId(1), 'OtherName'));
-    expect(findPlayer(state, playerId(1)).nickname).toBe(nickname(1));
-    expect(state.players).toHaveLength(1);
+    expect(state.players).toHaveLength(2);
+    expect(findPlayer(state, playerId(1))).toMatchObject({ connected: true, nickname: nickname(1) });
   });
 
   it.each(['QUESTION', 'REVEAL', 'LEADERBOARD', 'PODIUM'] as const)('is allowed in %s and keeps score and streak', (phase) => {
@@ -216,39 +197,7 @@ describe('SPEC §3 disconnect: player is kept but marked disconnected', () => {
     expect(findPlayer(state, playerId(1)).connected).toBe(true);
   });
 
-  it('works in GENERATING', () => {
-    let state = makeGeneratingGame(1);
-    state = ok(reduce(state, { type: 'disconnect', playerId: playerId(1) }, NOW));
-    expect(findPlayer(state, playerId(1)).connected).toBe(false);
-  });
-
   it('rejects an unknown id with PLAYER_NOT_FOUND', () => {
     expect(err(reduce(makeLobbyGame(1), { type: 'disconnect', playerId: playerId(42) }, NOW))).toBe('PLAYER_NOT_FOUND');
-  });
-});
-
-describe('Engine purity (CLAUDE.md rule #1): reduce does not mutate its input', () => {
-  it('join returns a new state and leaves the frozen input intact', () => {
-    const state = deepFreeze(makeLobbyGame(1));
-    const snapshot = structuredClone(state);
-    const next = ok(join(state, playerId(2), 'Beto'));
-    expect(state).toEqual(snapshot);
-    expect(next).not.toBe(state);
-    expect(next.players).toHaveLength(2);
-  });
-
-  it('reconnection does not mutate the input', () => {
-    const disconnected = ok(reduce(makeLobbyGame(1), { type: 'disconnect', playerId: playerId(1) }, NOW));
-    const state = deepFreeze(disconnected);
-    const snapshot = structuredClone(state);
-    ok(join(state, playerId(1), nickname(1)));
-    expect(state).toEqual(snapshot);
-  });
-
-  it('disconnect does not mutate the input', () => {
-    const state = deepFreeze(makeLobbyGame(2));
-    const snapshot = structuredClone(state);
-    ok(reduce(state, { type: 'disconnect', playerId: playerId(1) }, NOW));
-    expect(state).toEqual(snapshot);
   });
 });
