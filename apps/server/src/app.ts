@@ -27,8 +27,16 @@ export interface App {
 /** crypto.randomInt needs max - min < 2^48; 2^32 is plenty for picking room code characters. */
 const RANDOM_RANGE = 2 ** 32;
 
-const realScheduler: Scheduler = {
-  set: (callback, delayMs) => setTimeout(callback, delayMs),
+/** setTimeout-based scheduler. A throwing callback is logged: an uncaught timer error would kill every room. */
+export const realScheduler: Scheduler = {
+  set: (callback, delayMs) =>
+    setTimeout(() => {
+      try {
+        callback();
+      } catch (error) {
+        console.error('Question timer failed', error);
+      }
+    }, delayMs),
   clear: (handle) => {
     clearTimeout(handle as ReturnType<typeof setTimeout>);
   },

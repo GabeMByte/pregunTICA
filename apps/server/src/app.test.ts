@@ -8,7 +8,7 @@ import {
   type ClientToServerEvents,
   type ServerToClientEvents,
 } from '@preguntica/shared';
-import { createApp, MAX_MESSAGE_BYTES, type App, type AppOptions } from './app.js';
+import { createApp, MAX_MESSAGE_BYTES, realScheduler, type App, type AppOptions } from './app.js';
 
 type Client = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -90,5 +90,21 @@ describe('createApp', () => {
     client.emit('player:join', { roomCode: 'ABCDEF', nickname: 'x'.repeat(MAX_MESSAGE_BYTES * 2) });
     await disconnected;
     expect(client.connected).toBe(false);
+  });
+});
+
+describe('realScheduler', () => {
+  it('security review M2: a throwing timer callback is logged instead of crashing the process', () => {
+    vi.useFakeTimers();
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      realScheduler.set(() => {
+        throw new Error('boom');
+      }, 10);
+      expect(() => vi.runAllTimers()).not.toThrow();
+      expect(logged).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

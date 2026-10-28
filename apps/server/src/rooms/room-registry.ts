@@ -131,16 +131,16 @@ export class RoomRegistry {
   private generateQuestions(roomCode: string, config: RoomConfig): void {
     // async wrapper: a synchronous throw from the source becomes a rejection too.
     const load = async () => this.deps.questionSource.getQuestions(config);
-    void load().then(
-      (questions) => {
+    void load()
+      .then((questions) => {
         if (!this.rooms.has(roomCode)) return; // swept while generating
         const result = this.dispatch(roomCode, { type: 'questionsReady', questions });
-        if (!result.ok) this.deps.onGenerationError(roomCode, new Error(`questionsReady failed: ${result.error}`));
-      },
-      (error: unknown) => {
+        if (!result.ok) throw new Error(`questionsReady failed: ${result.error}`);
+      })
+      // Also catches a throw while applying the questions, which would otherwise be an unhandled rejection.
+      .catch((error: unknown) => {
         this.deps.onGenerationError(roomCode, error);
-      },
-    );
+      });
   }
 
   /** One timer per room, alive only while the room is in QUESTION. */

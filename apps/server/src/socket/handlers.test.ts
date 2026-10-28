@@ -481,3 +481,19 @@ describe('security review findings', () => {
     expect(host.received('room:state', since)).toHaveLength(0);
   });
 });
+
+describe('security review M2: an unexpected exception does not crash the server', () => {
+  it('a throwing handler answers INTERNAL and the server keeps working', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const h = await startServer();
+    const { host, roomCode } = await createRoom(h);
+    await join(h, roomCode, 'Ana');
+    const spy = vi.spyOn(h.registry, 'dispatch').mockImplementationOnce(() => {
+      throw new Error('boom');
+    });
+    host.socket.emit('host:start', { roomCode });
+    expect(await errorCode(host, 0)).toBe('INTERNAL');
+    spy.mockRestore();
+    await createRoom(h);
+  });
+});

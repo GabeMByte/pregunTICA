@@ -245,6 +245,18 @@ describe('SPEC §3 GENERATING → LOBBY: questions generated in the background',
     expect(h.onChange.mock.calls.some(([change]) => change.next.phase === 'LOBBY')).toBe(false);
   });
 
+  it('security review M2: an exception while applying the questions goes to onGenerationError, not to an unhandled rejection', async () => {
+    const h = setup();
+    const failure = new Error('listener failed');
+    h.onChange.mockImplementationOnce(() => {
+      throw failure;
+    });
+    const { roomCode } = created(h.registry.create(CONFIG, IP));
+    await vi.waitFor(() => {
+      expect(h.onGenerationError).toHaveBeenCalledWith(roomCode, failure);
+    });
+  });
+
   it('a manually rejected deferred also leaves the room in GENERATING', async () => {
     const pending = deferred<Question[]>();
     const h = setup({ getQuestions: () => pending.promise });

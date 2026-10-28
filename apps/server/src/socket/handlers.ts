@@ -112,6 +112,18 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
       return null;
     };
 
+    /** Socket.io runs listeners outside any try/catch: an uncaught throw would kill the whole process. */
+    const guard =
+      <A extends unknown[]>(listener: (...args: A) => void) =>
+      (...args: A): void => {
+        try {
+          listener(...args);
+        } catch (error) {
+          console.error('Socket handler failed', error);
+          fail('INTERNAL');
+        }
+      };
+
     const sendSnapshot = (state: GameState, viewer: Viewer): void => {
       for (const message of snapshotFor(state, viewer)) send(self, message);
     };
@@ -165,7 +177,7 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
       return playerSockets.get(playerKey(roomCode, playerId)) === socket.id ? playerId : null;
     };
 
-    socket.on('host:create', (raw) => {
+    socket.on('host:create', guard((raw: unknown) => {
       const payload = parse(HostCreatePayloadSchema, raw);
       if (payload === null) return;
       const result = registry.create(payload, getClientIp(socket.handshake, options.trustProxy));
@@ -177,9 +189,9 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
       send(self, { event: 'host:created', payload: { roomCode: result.roomCode, hostToken: result.hostToken } });
       const state = registry.get(result.roomCode);
       if (state !== undefined) sendSnapshot(state, { role: 'host' });
-    });
+    }));
 
-    socket.on('host:rejoin', (raw) => {
+    socket.on('host:rejoin', guard((raw: unknown) => {
       const payload = parse(HostRejoinPayloadSchema, raw);
       if (payload === null) return;
       const state = registry.get(payload.roomCode);
@@ -189,7 +201,7 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
       }
       bindHost(payload.roomCode);
       sendSnapshot(state, { role: 'host' });
-    });
+    }));
 
     const hostAction = (type: 'start' | 'next', roomCode: string): void => {
       if (!isHostOf(roomCode)) {
@@ -200,17 +212,17 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
       if (!result.ok) fail(result.error);
     };
 
-    socket.on('host:start', (raw) => {
+    socket.on('host:start', guard((raw: unknown) => {
       const payload = parse(HostStartPayloadSchema, raw);
       if (payload !== null) hostAction('start', payload.roomCode);
-    });
+    }));
 
-    socket.on('host:next', (raw) => {
+    socket.on('host:next', guard((raw: unknown) => {
       const payload = parse(HostNextPayloadSchema, raw);
       if (payload !== null) hostAction('next', payload.roomCode);
-    });
+    }));
 
-    socket.on('player:join', (raw) => {
+    socket.on('player:join', guard((raw: unknown) => {
       const payload = parse(PlayerJoinPayloadSchema, raw);
       if (payload === null) return;
       const playerId = payload.playerId ?? options.newPlayerId();
@@ -221,9 +233,9 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
       }
       bindPlayer(payload.roomCode, playerId);
       sendSnapshot(result.state, { role: 'player', playerId });
-    });
+    }));
 
-    socket.on('player:answer', (raw) => {
+    socket.on('player:answer', guard((raw: unknown) => {
       const payload = parse(PlayerAnswerPayloadSchema, raw);
       if (payload === null) return;
       // The player id always comes from the socket binding, never from the payload.
@@ -239,9 +251,9 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
         optionIndex: payload.optionIndex,
       });
       if (!result.ok) fail(result.error);
-    });
+    }));
 
     // A disconnected host changes nothing in the engine: timers keep running and the room waits in REVEAL.
-    socket.on('disconnect', unbind);
+    socket.on('disconnect', guard(unbind));
   });
 }
