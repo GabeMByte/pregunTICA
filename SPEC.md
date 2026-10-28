@@ -55,7 +55,7 @@ GENERATING → LOBBY → QUESTION → REVEAL → LEADERBOARD ─┬→ QUESTION
 ### Límites
 - Máx. 50 jugadores por sala; apodo de 1–16 caracteres, único en la sala.
 - Salas inactivas por más de 1 h se eliminan.
-- Máx. 5 salas creadas por IP cada 10 min. La IP es la del socket; solo si `TRUST_PROXY=true` (despliegue detrás del proxy de Render o Railway) se toma el primer valor de `X-Forwarded-For`.
+- Máx. 5 salas creadas por IP cada 10 min. La IP es la del socket; solo si `TRUST_PROXY=true` (despliegue detrás del proxy de Render o Railway) se toma el último valor de `X-Forwarded-For` (el que agrega el proxy; los anteriores los controla el cliente).
 
 ## 4. Arquitectura
 
