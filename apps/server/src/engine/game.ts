@@ -2,6 +2,7 @@ import {
   MAX_PLAYERS,
   NICKNAME_MAX_LENGTH,
   NICKNAME_MIN_LENGTH,
+  OPTIONS_PER_QUESTION,
   QUESTION_TIME_MS,
   type ErrorCode,
   type Question,
@@ -82,6 +83,9 @@ function answer(state: GameState, playerId: string, questionIndex: number, optio
     return failure('INVALID_PHASE');
   }
   if (!hasPlayer(state, playerId)) return failure('PLAYER_NOT_FOUND');
+  if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= OPTIONS_PER_QUESTION) {
+    return failure('INVALID_PAYLOAD');
+  }
   if (questionIndex !== state.questionIndex || now > state.questionEndsAt) return failure('INVALID_PHASE');
   // SPEC §3: only the first answer counts.
   if (Object.hasOwn(state.answers, playerId)) return success(state);

@@ -66,6 +66,10 @@ describe('SPEC §3 QUESTION: invalid answers', () => {
     expect(err(answer(state, 1, 0, NOW + T + 2, 0))).toBe('INVALID_PHASE');
   });
 
+  it.each([-1, 4, 1.5, Number.NaN])('rejects optionIndex %s with INVALID_PAYLOAD (engine does not trust the socket layer)', (optionIndex) => {
+    expect(err(answer(game(2), 1, optionIndex, NOW + 10))).toBe('INVALID_PAYLOAD');
+  });
+
   it('rejects an unknown player with PLAYER_NOT_FOUND', () => {
     expect(err(answer(game(2), 42, 0, NOW + 10))).toBe('PLAYER_NOT_FOUND');
   });
