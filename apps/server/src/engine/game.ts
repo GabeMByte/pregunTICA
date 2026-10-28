@@ -54,7 +54,7 @@ function questionsReady(state: GameState, questions: Question[]): EngineResult {
 }
 
 function join(state: GameState, playerId: string, rawNickname: string): EngineResult {
-  if (state.players.some((p) => p.id === playerId)) {
+  if (hasPlayer(state, playerId)) {
     return success(updatePlayer(state, playerId, { connected: true }));
   }
 
@@ -73,7 +73,7 @@ function join(state: GameState, playerId: string, rawNickname: string): EngineRe
 }
 
 function disconnect(state: GameState, playerId: string): EngineResult {
-  if (!state.players.some((p) => p.id === playerId)) return failure('PLAYER_NOT_FOUND');
+  if (!hasPlayer(state, playerId)) return failure('PLAYER_NOT_FOUND');
   return success(revealIfEveryoneAnswered(updatePlayer(state, playerId, { connected: false })));
 }
 
@@ -81,10 +81,10 @@ function answer(state: GameState, playerId: string, questionIndex: number, optio
   if (state.phase !== 'QUESTION' || state.questionStartedAt === null || state.questionEndsAt === null) {
     return failure('INVALID_PHASE');
   }
-  if (!state.players.some((p) => p.id === playerId)) return failure('PLAYER_NOT_FOUND');
+  if (!hasPlayer(state, playerId)) return failure('PLAYER_NOT_FOUND');
   if (questionIndex !== state.questionIndex || now > state.questionEndsAt) return failure('INVALID_PHASE');
   // SPEC §3: only the first answer counts.
-  if (playerId in state.answers) return success(state);
+  if (Object.hasOwn(state.answers, playerId)) return success(state);
 
   const answers = { ...state.answers, [playerId]: { optionIndex, elapsedMs: now - state.questionStartedAt } };
   return success(revealIfEveryoneAnswered({ ...state, answers }));
@@ -127,7 +127,7 @@ function beginQuestion(state: GameState, questionIndex: number, now: number): Ga
 
 function revealIfEveryoneAnswered(state: GameState): GameState {
   if (state.phase !== 'QUESTION') return state;
-  const pending = state.players.some((p) => p.connected && !(p.id in state.answers));
+  const pending = state.players.some((p) => p.connected && !Object.hasOwn(state.answers, p.id));
   return pending ? state : reveal(state);
 }
 
@@ -159,4 +159,8 @@ function reveal(state: GameState): GameState {
 
 function updatePlayer(state: GameState, playerId: string, changes: Partial<Player>): GameState {
   return { ...state, players: state.players.map((p) => (p.id === playerId ? { ...p, ...changes } : p)) };
+}
+
+function hasPlayer(state: GameState, playerId: string): boolean {
+  return state.players.some((p) => p.id === playerId);
 }
