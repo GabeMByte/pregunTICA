@@ -55,8 +55,10 @@ function questionsReady(state: GameState, questions: Question[]): EngineResult {
 }
 
 function join(state: GameState, playerId: string, rawNickname: string): EngineResult {
-  if (hasPlayer(state, playerId)) {
-    return success(updatePlayer(state, playerId, { connected: true }));
+  const existing = state.players.find((p) => p.id === playerId);
+  if (existing !== undefined) {
+    // Same state object for an already connected player: a no-op the registry does not broadcast.
+    return success(existing.connected ? state : updatePlayer(state, playerId, { connected: true }));
   }
 
   if (state.phase === 'PODIUM') return failure('INVALID_PHASE');

@@ -192,6 +192,11 @@ describe('SPEC §3 reconnection: join with an existing playerId', () => {
     expect(state.players).toHaveLength(1);
     expect(at(state.players, 0).connected).toBe(true);
   });
+
+  it('returns the very same state for an already connected player (a no-op, so nothing is broadcast)', () => {
+    const state = makeLobbyGame(2);
+    expect(ok(join(state, playerId(1), 'OtherName'))).toBe(state);
+  });
 });
 
 describe('SPEC §3 disconnect: player is kept but marked disconnected', () => {
