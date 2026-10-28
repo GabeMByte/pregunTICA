@@ -1,0 +1,149 @@
+import { describe, expect, it } from 'vitest';
+import {
+  ClientEvents,
+  clientPayloadSchemas,
+  HostCreatePayloadSchema,
+  PlayerAnswerPayloadSchema,
+  PlayerJoinPayloadSchema,
+  QuestionRevealPayloadSchema,
+  QuestionStartPayloadSchema,
+  RoomStatePayloadSchema,
+  ServerEvents,
+  serverPayloadSchemas,
+} from './events.js';
+
+const PLAYER_ID = '3f1c2a5e-8b4d-4e6f-9a1b-2c3d4e5f6a7b';
+
+describe('event names', () => {
+  it('match the spec (section 5)', () => {
+    expect(Object.values(ClientEvents).sort()).toEqual(
+      ['host:create', 'host:next', 'host:start', 'player:answer', 'player:join'],
+    );
+    expect(Object.values(ServerEvents).sort()).toEqual(
+      ['error', 'game:end', 'leaderboard', 'question:reveal', 'question:start', 'room:state'],
+    );
+  });
+
+  it('have a payload schema for every event', () => {
+    expect(Object.keys(clientPayloadSchemas).sort()).toEqual(Object.values(ClientEvents).sort());
+    expect(Object.keys(serverPayloadSchemas).sort()).toEqual(Object.values(ServerEvents).sort());
+  });
+});
+
+describe('host:create', () => {
+  it('accepts a valid payload and trims the topic', () => {
+    const parsed = HostCreatePayloadSchema.parse({ topic: '  Historia de Costa Rica ', count: 10, difficulty: 'medium' });
+    expect(parsed.topic).toBe('Historia de Costa Rica');
+  });
+
+  it.each([4, 16, 7.5])('rejects count %s', (count) => {
+    expect(HostCreatePayloadSchema.safeParse({ topic: 'Volcanes', count, difficulty: 'easy' }).success).toBe(false);
+  });
+
+  it('rejects an unknown difficulty', () => {
+    expect(HostCreatePayloadSchema.safeParse({ topic: 'Volcanes', count: 5, difficulty: 'extreme' }).success).toBe(false);
+  });
+
+  it('rejects unknown keys', () => {
+    expect(
+      HostCreatePayloadSchema.safeParse({ topic: 'Volcanes', count: 5, difficulty: 'easy', admin: true }).success,
+    ).toBe(false);
+  });
+});
+
+describe('player:join', () => {
+  it('normalizes the room code to uppercase', () => {
+    const parsed = PlayerJoinPayloadSchema.parse({ roomCode: ' abc234 ', nickname: 'Ana' });
+    expect(parsed.roomCode).toBe('ABC234');
+  });
+
+  it('accepts an optional playerId', () => {
+    expect(PlayerJoinPayloadSchema.safeParse({ roomCode: 'ABC234', nickname: 'Ana', playerId: PLAYER_ID }).success).toBe(true);
+  });
+
+  it.each(['ABC12', 'ABC2345', 'ABC0O1', 'ABC-23'])('rejects room code %s', (roomCode) => {
+    expect(PlayerJoinPayloadSchema.safeParse({ roomCode, nickname: 'Ana' }).success).toBe(false);
+  });
+
+  it.each(['', '   ', 'x'.repeat(17)])('rejects nickname "%s"', (nickname) => {
+    expect(PlayerJoinPayloadSchema.safeParse({ roomCode: 'ABC234', nickname }).success).toBe(false);
+  });
+
+  it('accepts a 16-character nickname', () => {
+    expect(PlayerJoinPayloadSchema.safeParse({ roomCode: 'ABC234', nickname: 'x'.repeat(16) }).success).toBe(true);
+  });
+
+  it('rejects a playerId that is not a UUID', () => {
+    expect(PlayerJoinPayloadSchema.safeParse({ roomCode: 'ABC234', nickname: 'Ana', playerId: 'abc' }).success).toBe(false);
+  });
+});
+
+describe('player:answer', () => {
+  it('accepts option indexes 0–3', () => {
+    for (const optionIndex of [0, 1, 2, 3]) {
+      expect(PlayerAnswerPayloadSchema.safeParse({ roomCode: 'ABC234', questionIndex: 0, optionIndex }).success).toBe(true);
+    }
+  });
+
+  it.each([-1, 4, 1.5])('rejects option index %s', (optionIndex) => {
+    expect(PlayerAnswerPayloadSchema.safeParse({ roomCode: 'ABC234', questionIndex: 0, optionIndex }).success).toBe(false);
+  });
+
+  it('rejects a negative question index', () => {
+    expect(PlayerAnswerPayloadSchema.safeParse({ roomCode: 'ABC234', questionIndex: -1, optionIndex: 0 }).success).toBe(false);
+  });
+});
+
+describe('question:start (CLAUDE.md rule #2)', () => {
+  const payload = {
+    index: 0,
+    total: 5,
+    prompt: '¿Cuál es el volcán más alto de Costa Rica?',
+    options: ['Irazú', 'Poás', 'Arenal', 'Turrialba'],
+    endsAt: 1_761_600_000_000,
+  };
+
+  it('accepts a payload without the answer', () => {
+    expect(QuestionStartPayloadSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it('rejects a payload that leaks correctIndex', () => {
+    expect(QuestionStartPayloadSchema.safeParse({ ...payload, correctIndex: 0 }).success).toBe(false);
+  });
+
+  it('rejects a payload that leaks the explanation', () => {
+    expect(QuestionStartPayloadSchema.safeParse({ ...payload, explanation: 'Mide 3432 m' }).success).toBe(false);
+  });
+
+  it('rejects duplicated options', () => {
+    expect(QuestionStartPayloadSchema.safeParse({ ...payload, options: ['A', 'B', 'a', 'C'] }).success).toBe(false);
+  });
+});
+
+describe('question:reveal', () => {
+  it('requires one vote count per option', () => {
+    const base = { correctIndex: 0, explanation: 'Mide 3432 m' };
+    expect(QuestionRevealPayloadSchema.safeParse({ ...base, distribution: [3, 1, 0, 2] }).success).toBe(true);
+    expect(QuestionRevealPayloadSchema.safeParse({ ...base, distribution: [3, 1, 0] }).success).toBe(false);
+  });
+});
+
+describe('room:state', () => {
+  const payload = {
+    roomCode: 'ABC234',
+    phase: 'LOBBY',
+    topic: 'Volcanes',
+    players: [{ nickname: 'Ana', score: 0, connected: true }],
+    questionIndex: null,
+    totalQuestions: 5,
+  };
+
+  it('accepts the public state', () => {
+    expect(RoomStatePayloadSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it('rejects players that expose their playerId', () => {
+    const leaky = { ...payload, players: [{ nickname: 'Ana', score: 0, connected: true, playerId: PLAYER_ID }] };
+    expect(RoomStatePayloadSchema.safeParse(leaky).success).toBe(false);
+  });
+});
