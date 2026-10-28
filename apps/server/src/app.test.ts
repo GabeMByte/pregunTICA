@@ -1,42 +1,94 @@
 import type { AddressInfo } from 'node:net';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { io as connect, type Socket } from 'socket.io-client';
-import type { ClientToServerEvents, ServerToClientEvents } from '@preguntica/shared';
-import { createApp, type App } from './app.js';
+import {
+  ErrorPayloadSchema,
+  HostCreatedPayloadSchema,
+  RoomStatePayloadSchema,
+  type ClientToServerEvents,
+  type ServerToClientEvents,
+} from '@preguntica/shared';
+import { createApp, MAX_MESSAGE_BYTES, type App, type AppOptions } from './app.js';
+
+type Client = Socket<ServerToClientEvents, ClientToServerEvents>;
+
+let app: App | undefined;
+const clients: Client[] = [];
+
+async function start(overrides: Partial<AppOptions> = {}): Promise<string> {
+  app = createApp(overrides);
+  const server = app.httpServer;
+  await new Promise<void>((resolve) => server.listen(0, resolve));
+  const { port } = server.address() as AddressInfo;
+  return `http://localhost:${String(port)}`;
+}
+
+async function connectTo(baseUrl: string): Promise<Client> {
+  const client: Client = connect(baseUrl, { transports: ['websocket'], forceNew: true });
+  clients.push(client);
+  await new Promise<void>((resolve, reject) => {
+    client.on('connect', resolve);
+    client.on('connect_error', reject);
+  });
+  return client;
+}
+
+afterEach(async () => {
+  for (const client of clients.splice(0)) client.disconnect();
+  await app?.io.close();
+  app = undefined;
+});
 
 describe('createApp', () => {
-  let app: App;
-  let baseUrl: string;
-
-  beforeEach(async () => {
-    app = createApp();
-    await new Promise<void>((resolve) => app.httpServer.listen(0, resolve));
-    const { port } = app.httpServer.address() as AddressInfo;
-    baseUrl = `http://localhost:${port}`;
-  });
-
-  afterEach(async () => {
-    await app.io.close();
-  });
-
   it('answers the health check', async () => {
-    const res = await fetch(`${baseUrl}/health`);
+    const res = await fetch(`${await start()}/health`);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: 'ok' });
   });
 
   it('returns 404 for unknown routes', async () => {
-    const res = await fetch(`${baseUrl}/nope`);
+    const res = await fetch(`${await start()}/nope`);
     expect(res.status).toBe(404);
   });
 
-  it('accepts socket.io connections', async () => {
-    const client: Socket<ServerToClientEvents, ClientToServerEvents> = connect(baseUrl, { transports: ['websocket'] });
-    await new Promise<void>((resolve, reject) => {
-      client.on('connect', resolve);
-      client.on('connect_error', reject);
+  it('creates a room with the local question bank and reaches LOBBY', async () => {
+    const host = await connectTo(await start());
+    const phases: string[] = [];
+    let created: unknown;
+    host.on('host:created', (payload) => (created = payload));
+    host.on('room:state', (payload) => phases.push(RoomStatePayloadSchema.parse(payload).phase));
+    host.emit('host:create', { topic: 'Cultura general', count: 5, difficulty: 'easy' });
+    await vi.waitFor(() => {
+      expect(phases).toContain('LOBBY');
     });
-    expect(client.connected).toBe(true);
-    client.disconnect();
+    const { roomCode } = HostCreatedPayloadSchema.parse(created);
+    expect(app?.registry.get(roomCode)?.questions).toHaveLength(5);
+  });
+
+  it('tells only the host when question generation fails, and the room stays in GENERATING', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const host = await connectTo(
+      await start({ questionSource: { getQuestions: () => Promise.reject(new Error('boom')) } }),
+    );
+    const errors: unknown[] = [];
+    let roomCode = '';
+    host.on('host:created', (payload) => (roomCode = payload.roomCode));
+    host.on('error', (payload) => errors.push(payload));
+    host.emit('host:create', { topic: 'Cultura general', count: 5, difficulty: 'easy' });
+    await vi.waitFor(() => {
+      expect(errors).toHaveLength(1);
+    });
+    expect(ErrorPayloadSchema.parse(errors[0]).code).toBe('INTERNAL');
+    expect(app?.registry.get(roomCode)?.phase).toBe('GENERATING');
+  });
+
+  it('drops a client that sends a message over the size limit', async () => {
+    const client = await connectTo(await start());
+    const disconnected = new Promise<void>((resolve) => client.on('disconnect', () => {
+      resolve();
+    }));
+    client.emit('player:join', { roomCode: 'ABCDEF', nickname: 'x'.repeat(MAX_MESSAGE_BYTES * 2) });
+    await disconnected;
+    expect(client.connected).toBe(false);
   });
 });

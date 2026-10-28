@@ -88,6 +88,11 @@ export function broadcastChange(io: GameServer, { roomCode, previous, next }: Ro
   }
 }
 
+/** Wire as RoomRegistry's onGenerationError: tells only the host; the room stays in GENERATING. */
+export function notifyGenerationError(io: GameServer, roomCode: string): void {
+  send(io.to(hostChannel(roomCode)), { event: 'error', payload: { code: 'INTERNAL', message: ERROR_MESSAGES.INTERNAL } });
+}
+
 /** Thin layer: validate with Zod, authorize with socket.data, delegate to the registry/engine. */
 export function registerHandlers(io: GameServer, registry: RoomRegistry, options: HandlerOptions): void {
   // Latest socket bound to each player wins; older sockets lose that identity.
