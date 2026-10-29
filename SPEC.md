@@ -17,7 +17,8 @@ Demostrar dos cosas:
 - Preguntas de 4 opciones, temporizador de 20 s.
 - Revelación de respuesta con distribución de votos y explicación breve.
 - Ranking (top 5) entre preguntas y podio final animado.
-- Reconexión si un jugador recarga la página.
+- Reconexión si un jugador recarga la página; el host recupera el control de su sala con un token secreto.
+- Jugadores que llegan tarde pueden unirse con la partida en curso.
 - Desplegado en una URL pública.
 
 ### Fuera de alcance
@@ -41,6 +42,11 @@ GENERATING → LOBBY → QUESTION → REVEAL → LEADERBOARD ─┬→ QUESTION
 - **LEADERBOARD**: top 5. El host avanza manualmente.
 - **PODIUM**: top 3 final.
 
+### Jugadores tardíos y desconexiones
+- Un jugador puede unirse en QUESTION, REVEAL o LEADERBOARD (no en PODIUM). Entra con 0 puntos y participa desde la **siguiente** pregunta: si entra durante QUESTION no recibe esa pregunta, se le indica que espere, no puede responderla y no se le espera para pasar a REVEAL.
+- Antes de empezar (GENERATING o LOBBY) un jugador que se desconecta se elimina de la sala: libera su lugar y su apodo. Si vuelve, entra como jugador nuevo. Con la partida en curso se conserva con su puntaje y puede reconectarse.
+- Si el host se desconecta, la partida no se rompe: los timers siguen y la sala llega a REVEAL, donde espera (sin avanzar sola) hasta que el host vuelva con `host:rejoin` y pulse `host:next`.
+
 ### Puntaje
 - Incorrecta o sin respuesta: 0 y la racha se reinicia.
 - Correcta: `round(1000 * (1 - (t / T) / 2))` donde `t` = tiempo en responder y `T` = límite. Rango: 500–1000.
@@ -48,9 +54,10 @@ GENERATING → LOBBY → QUESTION → REVEAL → LEADERBOARD ─┬→ QUESTION
 - Solo cuenta la primera respuesta de cada jugador.
 
 ### Límites
-- Máx. 50 jugadores por sala; apodo de 1–16 caracteres, único en la sala.
+- Máx. 50 jugadores por sala; apodo de 1–16 caracteres, único en la sala (sin distinguir mayúsculas). El apodo se normaliza con NFKC, se quitan los caracteres invisibles y de control y se colapsan los espacios; no se detectan homoglifos entre alfabetos.
+- Máx. 10 intentos de `player:join` por socket por minuto, contando los fallidos. Es por socket y no por IP porque un aula entera puede compartir la IP del router.
 - Salas inactivas por más de 1 h se eliminan.
-- Máx. 5 salas creadas por IP cada 10 min.
+- Máx. 5 salas creadas por IP cada 10 min. La IP es la del socket; solo si `TRUST_PROXY=true` (despliegue detrás del proxy de Render o Railway) se toma el último valor de `X-Forwarded-For` (el que agrega el proxy; los anteriores los controla el cliente).
 
 ## 4. Arquitectura
 
@@ -87,8 +94,11 @@ pregunTICA/
 | C→S | `host:create` | `{ topic, count, difficulty }` |
 | C→S | `host:start` | `{ roomCode }` |
 | C→S | `host:next` | `{ roomCode }` |
+| C→S | `host:rejoin` | `{ roomCode, hostToken }` |
 | C→S | `player:join` | `{ roomCode, nickname, playerId? }` |
 | C→S | `player:answer` | `{ roomCode, questionIndex, optionIndex }` |
+| S→C | `host:created` | `{ roomCode, hostToken }` (solo al host) |
+| S→C | `player:joined` | `{ playerId, nickname, waitingForNextQuestion }` (solo a ese jugador) |
 | S→C | `room:state` | Estado público de la sala (fase, jugadores, índice) |
 | S→C | `question:start` | `{ index, total, prompt, options, endsAt }` (sin respuesta correcta) |
 | S→C | `question:reveal` | `{ correctIndex, distribution, explanation, yourResult? }` |
@@ -96,7 +106,7 @@ pregunTICA/
 | S→C | `game:end` | `{ podium }` |
 | S→C | `error` | `{ code, message }` |
 
-`playerId` se genera en el cliente y se guarda en `localStorage` para reconexión.
+`playerId` se genera en el cliente y se guarda en `localStorage` para reconexión (si no se envía, el servidor genera uno y lo devuelve en `player:joined`). `hostToken` lo genera el servidor, solo viaja en `host:created` y el host lo guarda para `host:rejoin`. Ninguno de los dos se envía nunca a otros clientes.
 
 ## 6. Generación de preguntas con IA
 
@@ -133,3 +143,15 @@ pregunTICA/
 - Crear sala → preguntas listas en < 8 s (o instantáneo con caché).
 - 10+ celulares conectados sin lag perceptible.
 - Partida de 5 preguntas en ~3 minutos.
+
+## 10. Riesgos aceptados
+
+Hallazgos de la revisión de seguridad del Día 3 que no se corrigen en el MVP:
+
+- **El `playerId` funciona como contraseña de reconexión**: quien lo conozca puede tomar esa identidad. Nunca se envía a otros clientes; solo se filtraría desde el propio dispositivo.
+- **Un socket host anterior conserva el control tras `host:rejoin`**: requiere haber tenido el `hostToken`, que solo recibe el host.
+- **Los jugadores pueden ver cuántos han respondido y cuándo** (`room:state` en QUESTION): no revela qué opción eligieron ni la respuesta correcta, y el host lo muestra de todos modos.
+- **No se valida el `Origin` de las conexiones**: no hay cookies ni sesiones que robar. Se resuelve en el despliegue limitando CORS al dominio propio.
+
+### Pendiente
+- `host:kick` (Día 5): el host puede expulsar a un jugador desde la pantalla del proyector. Se define primero en `packages/shared`.

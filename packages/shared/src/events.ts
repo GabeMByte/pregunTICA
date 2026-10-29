@@ -24,12 +24,15 @@ export const ClientEvents = {
   HostCreate: 'host:create',
   HostStart: 'host:start',
   HostNext: 'host:next',
+  HostRejoin: 'host:rejoin',
   PlayerJoin: 'player:join',
   PlayerAnswer: 'player:answer',
 } as const;
 export type ClientEvent = (typeof ClientEvents)[keyof typeof ClientEvents];
 
 export const ServerEvents = {
+  HostCreated: 'host:created',
+  PlayerJoined: 'player:joined',
   RoomState: 'room:state',
   QuestionStart: 'question:start',
   QuestionReveal: 'question:reveal',
@@ -57,6 +60,14 @@ export const HostNextPayloadSchema = z.strictObject({
   roomCode: RoomCodeSchema,
 });
 
+/** Secret issued by the server in `host:created`; lets the host regain control of its room. */
+export const HostTokenSchema = z.uuid();
+
+export const HostRejoinPayloadSchema = z.strictObject({
+  roomCode: RoomCodeSchema,
+  hostToken: HostTokenSchema,
+});
+
 export const PlayerJoinPayloadSchema = z.strictObject({
   roomCode: RoomCodeSchema,
   nickname: NicknameSchema,
@@ -74,6 +85,7 @@ export const clientPayloadSchemas = {
   [ClientEvents.HostCreate]: HostCreatePayloadSchema,
   [ClientEvents.HostStart]: HostStartPayloadSchema,
   [ClientEvents.HostNext]: HostNextPayloadSchema,
+  [ClientEvents.HostRejoin]: HostRejoinPayloadSchema,
   [ClientEvents.PlayerJoin]: PlayerJoinPayloadSchema,
   [ClientEvents.PlayerAnswer]: PlayerAnswerPayloadSchema,
 } as const satisfies Record<ClientEvent, z.ZodType>;
@@ -81,6 +93,7 @@ export const clientPayloadSchemas = {
 export type HostCreatePayload = z.infer<typeof HostCreatePayloadSchema>;
 export type HostStartPayload = z.infer<typeof HostStartPayloadSchema>;
 export type HostNextPayload = z.infer<typeof HostNextPayloadSchema>;
+export type HostRejoinPayload = z.infer<typeof HostRejoinPayloadSchema>;
 export type PlayerJoinPayload = z.infer<typeof PlayerJoinPayloadSchema>;
 export type PlayerAnswerPayload = z.infer<typeof PlayerAnswerPayloadSchema>;
 
@@ -89,6 +102,21 @@ export type PlayerAnswerPayload = z.infer<typeof PlayerAnswerPayloadSchema>;
 // ---------------------------------------------------------------------------
 
 const ScoreSchema = z.int().min(0);
+
+/** Sent only to the host's socket. The only place the host token travels. */
+export const HostCreatedPayloadSchema = z.strictObject({
+  roomCode: RoomCodeSchema,
+  hostToken: HostTokenSchema,
+});
+
+/** Sent only to the joining player's socket (also on reconnection). */
+export const PlayerJoinedPayloadSchema = z.strictObject({
+  playerId: PlayerIdSchema,
+  /** Stored nickname: on reconnection the original one is kept. */
+  nickname: NicknameSchema,
+  /** True when the player joined mid-question and plays from the next one. */
+  waitingForNextQuestion: z.boolean(),
+});
 
 /** Public view of a player. Never includes `playerId`: it is the reconnection secret. */
 export const PublicPlayerSchema = z.strictObject({
@@ -175,6 +203,8 @@ export const ErrorPayloadSchema = z.strictObject({
 });
 
 export const serverPayloadSchemas = {
+  [ServerEvents.HostCreated]: HostCreatedPayloadSchema,
+  [ServerEvents.PlayerJoined]: PlayerJoinedPayloadSchema,
   [ServerEvents.RoomState]: RoomStatePayloadSchema,
   [ServerEvents.QuestionStart]: QuestionStartPayloadSchema,
   [ServerEvents.QuestionReveal]: QuestionRevealPayloadSchema,
@@ -183,6 +213,8 @@ export const serverPayloadSchemas = {
   [ServerEvents.Error]: ErrorPayloadSchema,
 } as const satisfies Record<ServerEvent, z.ZodType>;
 
+export type HostCreatedPayload = z.infer<typeof HostCreatedPayloadSchema>;
+export type PlayerJoinedPayload = z.infer<typeof PlayerJoinedPayloadSchema>;
 export type RoomStatePayload = z.infer<typeof RoomStatePayloadSchema>;
 export type QuestionStartPayload = z.infer<typeof QuestionStartPayloadSchema>;
 export type QuestionRevealPayload = z.infer<typeof QuestionRevealPayloadSchema>;
@@ -201,11 +233,14 @@ export interface ClientToServerEvents {
   [ClientEvents.HostCreate]: (payload: z.input<typeof HostCreatePayloadSchema>) => void;
   [ClientEvents.HostStart]: (payload: z.input<typeof HostStartPayloadSchema>) => void;
   [ClientEvents.HostNext]: (payload: z.input<typeof HostNextPayloadSchema>) => void;
+  [ClientEvents.HostRejoin]: (payload: z.input<typeof HostRejoinPayloadSchema>) => void;
   [ClientEvents.PlayerJoin]: (payload: z.input<typeof PlayerJoinPayloadSchema>) => void;
   [ClientEvents.PlayerAnswer]: (payload: z.input<typeof PlayerAnswerPayloadSchema>) => void;
 }
 
 export interface ServerToClientEvents {
+  [ServerEvents.HostCreated]: (payload: HostCreatedPayload) => void;
+  [ServerEvents.PlayerJoined]: (payload: PlayerJoinedPayload) => void;
   [ServerEvents.RoomState]: (payload: RoomStatePayload) => void;
   [ServerEvents.QuestionStart]: (payload: QuestionStartPayload) => void;
   [ServerEvents.QuestionReveal]: (payload: QuestionRevealPayload) => void;

@@ -25,3 +25,6 @@ export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const ROOM_IDLE_TTL_MS = 60 * 60 * 1000;
 export const ROOM_CREATION_LIMIT = 5;
 export const ROOM_CREATION_WINDOW_MS = 10 * 60 * 1000;
+/** Per socket, not per IP: a whole classroom can share one IP behind the school router. */
+export const PLAYER_JOIN_LIMIT = 10;
+export const PLAYER_JOIN_WINDOW_MS = 60 * 1000;
