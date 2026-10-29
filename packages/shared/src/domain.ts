@@ -22,7 +22,25 @@ const roomCodePattern = new RegExp(`^[${ROOM_CODE_ALPHABET}]{${ROOM_CODE_LENGTH}
 export const RoomCodeSchema = z.string().trim().toUpperCase().regex(roomCodePattern, 'Código de sala inválido');
 export type RoomCode = z.infer<typeof RoomCodeSchema>;
 
-export const NicknameSchema = z.string().trim().min(NICKNAME_MIN_LENGTH).max(NICKNAME_MAX_LENGTH);
+const INVISIBLE_OR_CONTROL = /[\p{Cc}\p{Cf}]/gu;
+
+/**
+ * NFKC, then format characters (zero-width, bidi overrides, BOM) are dropped, control whitespace
+ * (tab, newline) becomes a space, other control characters are dropped, and spaces collapse.
+ * Homoglyphs across scripts (Cyrillic "А" vs Latin "A") are deliberately not handled.
+ */
+export function normalizeNickname(raw: string): string {
+  return raw
+    .normalize('NFKC')
+    .replace(INVISIBLE_OR_CONTROL, (c) => (/\p{Cc}/u.test(c) && /\s/u.test(c) ? ' ' : ''))
+    .replace(/\s+/gu, ' ')
+    .trim();
+}
+
+export const NicknameSchema = z
+  .string()
+  .transform(normalizeNickname)
+  .pipe(z.string().min(NICKNAME_MIN_LENGTH).max(NICKNAME_MAX_LENGTH));
 
 export const PlayerIdSchema = z.uuid();
 
