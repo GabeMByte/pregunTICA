@@ -44,6 +44,7 @@ GENERATING → LOBBY → QUESTION → REVEAL → LEADERBOARD ─┬→ QUESTION
 
 ### Jugadores tardíos y desconexiones
 - Un jugador puede unirse en QUESTION, REVEAL o LEADERBOARD (no en PODIUM). Entra con 0 puntos y participa desde la **siguiente** pregunta: si entra durante QUESTION no recibe esa pregunta, se le indica que espere, no puede responderla y no se le espera para pasar a REVEAL.
+- Antes de empezar (GENERATING o LOBBY) un jugador que se desconecta se elimina de la sala: libera su lugar y su apodo. Si vuelve, entra como jugador nuevo. Con la partida en curso se conserva con su puntaje y puede reconectarse.
 - Si el host se desconecta, la partida no se rompe: los timers siguen y la sala llega a REVEAL, donde espera (sin avanzar sola) hasta que el host vuelva con `host:rejoin` y pulse `host:next`.
 
 ### Puntaje
@@ -53,7 +54,8 @@ GENERATING → LOBBY → QUESTION → REVEAL → LEADERBOARD ─┬→ QUESTION
 - Solo cuenta la primera respuesta de cada jugador.
 
 ### Límites
-- Máx. 50 jugadores por sala; apodo de 1–16 caracteres, único en la sala.
+- Máx. 50 jugadores por sala; apodo de 1–16 caracteres, único en la sala (sin distinguir mayúsculas). El apodo se normaliza con NFKC, se quitan los caracteres invisibles y de control y se colapsan los espacios; no se detectan homoglifos entre alfabetos.
+- Máx. 10 intentos de `player:join` por socket por minuto, contando los fallidos. Es por socket y no por IP porque un aula entera puede compartir la IP del router.
 - Salas inactivas por más de 1 h se eliminan.
 - Máx. 5 salas creadas por IP cada 10 min. La IP es la del socket; solo si `TRUST_PROXY=true` (despliegue detrás del proxy de Render o Railway) se toma el último valor de `X-Forwarded-For` (el que agrega el proxy; los anteriores los controla el cliente).
 
@@ -141,3 +143,15 @@ pregunTICA/
 - Crear sala → preguntas listas en < 8 s (o instantáneo con caché).
 - 10+ celulares conectados sin lag perceptible.
 - Partida de 5 preguntas en ~3 minutos.
+
+## 10. Riesgos aceptados
+
+Hallazgos de la revisión de seguridad del Día 3 que no se corrigen en el MVP:
+
+- **El `playerId` funciona como contraseña de reconexión**: quien lo conozca puede tomar esa identidad. Nunca se envía a otros clientes; solo se filtraría desde el propio dispositivo.
+- **Un socket host anterior conserva el control tras `host:rejoin`**: requiere haber tenido el `hostToken`, que solo recibe el host.
+- **Los jugadores pueden ver cuántos han respondido y cuándo** (`room:state` en QUESTION): no revela qué opción eligieron ni la respuesta correcta, y el host lo muestra de todos modos.
+- **No se valida el `Origin` de las conexiones**: no hay cookies ni sesiones que robar. Se resuelve en el despliegue limitando CORS al dominio propio.
+
+### Pendiente
+- `host:kick` (Día 5): el host puede expulsar a un jugador desde la pantalla del proyector. Se define primero en `packages/shared`.
