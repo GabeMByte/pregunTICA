@@ -5,10 +5,13 @@ import {
   HostRejoinPayloadSchema,
   HostStartPayloadSchema,
   PlayerAnswerPayloadSchema,
+  PLAYER_JOIN_LIMIT,
+  PLAYER_JOIN_WINDOW_MS,
   PlayerJoinPayloadSchema,
   type ErrorCode,
 } from '@preguntica/shared';
 import type { GameState } from '../engine/index.js';
+import { createRateLimiter } from '../rooms/rate-limiter.js';
 import type { RoomChange, RoomRegistry } from '../rooms/room-registry.js';
 import { getClientIp } from './client-ip.js';
 import { eventsForTransition, snapshotFor, type Message, type Target, type Viewer } from './transitions.js';
@@ -19,6 +22,8 @@ export interface HandlerOptions {
   trustProxy: boolean;
   /** Used when player:join comes without a playerId. */
   newPlayerId: () => string;
+  /** Current time in epoch ms, for the per-socket join limit. */
+  clock: () => number;
 }
 
 const ERROR_MESSAGES: Record<ErrorCode, string> = {
@@ -31,7 +36,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   INVALID_PHASE: 'Esa acción no está disponible en este momento.',
   QUESTIONS_NOT_READY: 'Las preguntas todavía se están generando.',
   NO_PLAYERS: 'Se necesita al menos un jugador conectado.',
-  RATE_LIMITED: 'Creaste demasiadas salas. Espera unos minutos.',
+  RATE_LIMITED: 'Demasiados intentos. Espera un momento y vuelve a probar.',
   INTERNAL: 'Ocurrió un error inesperado.',
 };
 
@@ -110,6 +115,8 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
 
   io.on('connection', (socket: GameSocket) => {
     const self = io.to(socket.id);
+    // Every attempt counts, failed ones too, so a socket cannot fill rooms or guess codes.
+    const joinLimiter = createRateLimiter({ limit: PLAYER_JOIN_LIMIT, windowMs: PLAYER_JOIN_WINDOW_MS });
 
     const fail = (code: ErrorCode): void => {
       send(self, { event: 'error', payload: { code, message: ERROR_MESSAGES[code] } });
@@ -233,6 +240,10 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
     }));
 
     socket.on('player:join', guard((raw: unknown) => {
+      if (!joinLimiter.tryAcquire(socket.id, options.clock())) {
+        fail('RATE_LIMITED');
+        return;
+      }
       const payload = parse(PlayerJoinPayloadSchema, raw);
       if (payload === null) return;
       const playerId = payload.playerId ?? options.newPlayerId();

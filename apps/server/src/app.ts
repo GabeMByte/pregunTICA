@@ -77,7 +77,7 @@ export function createApp(overrides: Partial<AppOptions> = {}): App {
     },
   });
 
-  registerHandlers(io, registry, { trustProxy: options.trustProxy, newPlayerId: randomUUID });
+  registerHandlers(io, registry, { trustProxy: options.trustProxy, newPlayerId: randomUUID, clock: options.clock });
 
   return { httpServer, io, registry };
 }

@@ -122,10 +122,9 @@ describe('SPEC §3 Límites: nickname unique in the room', () => {
     expect(err(join(state, playerId(2), '  aNA '))).toBe('NICKNAME_TAKEN');
   });
 
-  it('also counts disconnected players', () => {
-    let state = ok(join(makeLobbyGame(0), playerId(1), 'Ana'));
-    state = ok(reduce(state, { type: 'disconnect', playerId: playerId(1) }, NOW));
-    expect(err(join(state, playerId(2), 'ANA'))).toBe('NICKNAME_TAKEN');
+  it('also counts disconnected players once the game started', () => {
+    const state = ok(reduce(midGame('LEADERBOARD'), { type: 'disconnect', playerId: playerId(1) }, NOW));
+    expect(err(join(state, playerId(9), nickname(1).toUpperCase()))).toBe('NICKNAME_TAKEN');
   });
 });
 
@@ -140,9 +139,8 @@ describe(`SPEC §3 Límites: max ${MAX_PLAYERS} players per room`, () => {
     expect(err(join(state, playerId(MAX_PLAYERS + 1), 'Late'))).toBe('ROOM_FULL');
   });
 
-  it('disconnected players still hold their slot', () => {
-    let state = makeLobbyGame(MAX_PLAYERS);
-    state = ok(reduce(state, { type: 'disconnect', playerId: playerId(1) }, NOW));
+  it('disconnected players still hold their slot once the game started', () => {
+    const state = ok(reduce(midGame('LEADERBOARD', MAX_PLAYERS), { type: 'disconnect', playerId: playerId(1) }, NOW));
     expect(err(join(state, playerId(MAX_PLAYERS + 1), 'Late'))).toBe('ROOM_FULL');
   });
 });
@@ -162,12 +160,12 @@ describe('SPEC §3 Jugadores tardíos: no new players once the game is over', ()
 });
 
 describe('SPEC §3 reconnection: join with an existing playerId', () => {
-  it('reconnects in LOBBY without duplicating and keeps the original nickname', () => {
+  it('in LOBBY a player removed on disconnect comes back as a new player with the new nickname', () => {
     let state = makeLobbyGame(2);
     state = ok(reduce(state, { type: 'disconnect', playerId: playerId(1) }, NOW));
     state = ok(join(state, playerId(1), 'OtherName'));
     expect(state.players).toHaveLength(2);
-    expect(findPlayer(state, playerId(1))).toMatchObject({ connected: true, nickname: nickname(1) });
+    expect(findPlayer(state, playerId(1))).toMatchObject({ connected: true, nickname: 'OtherName', score: 0 });
   });
 
   it.each(['QUESTION', 'REVEAL', 'LEADERBOARD', 'PODIUM'] as const)('is allowed in %s and keeps score and streak', (phase) => {
@@ -199,16 +197,40 @@ describe('SPEC §3 reconnection: join with an existing playerId', () => {
   });
 });
 
-describe('SPEC §3 disconnect: player is kept but marked disconnected', () => {
-  it('sets connected = false and keeps the player data', () => {
-    let state = makeLobbyGame(2);
-    state = ok(reduce(state, { type: 'disconnect', playerId: playerId(2) }, NOW));
+describe('SPEC §3 disconnect: once the game started the player is kept but marked disconnected', () => {
+  it.each(['QUESTION', 'REVEAL', 'LEADERBOARD', 'PODIUM'] as const)('in %s sets connected = false and keeps score and nickname', (phase) => {
+    const state = ok(reduce(midGame(phase), { type: 'disconnect', playerId: playerId(1) }, NOW));
     expect(state.players).toHaveLength(2);
-    expect(findPlayer(state, playerId(2))).toMatchObject({ nickname: nickname(2), connected: false, score: 0 });
-    expect(findPlayer(state, playerId(1)).connected).toBe(true);
+    expect(findPlayer(state, playerId(1))).toMatchObject({ nickname: nickname(1), connected: false, score: 1850 });
+    expect(findPlayer(state, playerId(2)).connected).toBe(true);
   });
 
   it('rejects an unknown id with PLAYER_NOT_FOUND', () => {
     expect(err(reduce(makeLobbyGame(1), { type: 'disconnect', playerId: playerId(42) }, NOW))).toBe('PLAYER_NOT_FOUND');
+  });
+});
+
+describe('security review A1: before the game starts a disconnected player is removed', () => {
+  it.each([
+    ['GENERATING', makeGeneratingGame],
+    ['LOBBY', makeLobbyGame],
+  ] as const)('in %s the player leaves the room', (_phase, build) => {
+    const state = ok(reduce(build(2), { type: 'disconnect', playerId: playerId(2) }, NOW));
+    expect(state.players.map((p) => p.id)).toEqual([playerId(1)]);
+  });
+
+  it('frees the slot of a full room', () => {
+    const state = ok(reduce(makeLobbyGame(MAX_PLAYERS), { type: 'disconnect', playerId: playerId(1) }, NOW));
+    expect(ok(join(state, playerId(MAX_PLAYERS + 1), 'Late')).players).toHaveLength(MAX_PLAYERS);
+  });
+
+  it('frees the nickname', () => {
+    const state = ok(reduce(makeLobbyGame(2), { type: 'disconnect', playerId: playerId(1) }, NOW));
+    expect(findPlayer(ok(join(state, playerId(9), nickname(1))), playerId(9)).nickname).toBe(nickname(1));
+  });
+
+  it('a second disconnect of the removed player is PLAYER_NOT_FOUND', () => {
+    const state = ok(reduce(makeLobbyGame(2), { type: 'disconnect', playerId: playerId(1) }, NOW));
+    expect(err(reduce(state, { type: 'disconnect', playerId: playerId(1) }, NOW))).toBe('PLAYER_NOT_FOUND');
   });
 });

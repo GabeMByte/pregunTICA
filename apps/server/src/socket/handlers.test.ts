@@ -10,6 +10,8 @@ import {
   HostCreatedPayloadSchema,
   LeaderboardPayloadSchema,
   PlayerJoinedPayloadSchema,
+  PLAYER_JOIN_LIMIT,
+  PLAYER_JOIN_WINDOW_MS,
   QUESTION_TIME_MS,
   ROOM_IDLE_TTL_MS,
   QuestionRevealPayloadSchema,
@@ -100,7 +102,11 @@ async function startServer(options: { trustProxy?: boolean } = {}) {
     },
     onGenerationError: () => undefined,
   });
-  registerHandlers(io, registry, { trustProxy: options.trustProxy ?? false, newPlayerId: randomUUID });
+  registerHandlers(io, registry, {
+    trustProxy: options.trustProxy ?? false,
+    newPlayerId: randomUUID,
+    clock: () => clock.now,
+  });
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const url = `http://localhost:${String((httpServer.address() as AddressInfo).port)}`;
 
@@ -445,26 +451,24 @@ describe('SPEC §3 Límites: 5 rooms per IP every 10 minutes', () => {
 });
 
 describe('security review findings', () => {
-  it('A1: a socket that joins as someone else leaves its previous player disconnected (no ghost players)', async () => {
+  it('A1: a socket that joins as someone else releases its previous player (no ghost players)', async () => {
     const h = await startServer();
     const { roomCode } = await createRoom(h);
     const bot = await join(h, roomCode, 'bot0');
     bot.player.socket.emit('player:join', { roomCode, nickname: 'bot1' });
     await bot.player.next('player:joined', 1, (p) => PlayerJoinedPayloadSchema.parse(p).nickname === 'bot1');
+    // In LOBBY the released player is removed; mid-game it would stay with connected: false.
     const connected = h.registry.get(roomCode)?.players.map((p) => [p.nickname, p.connected]);
-    expect(connected).toEqual([
-      ['bot0', false],
-      ['bot1', true],
-    ]);
+    expect(connected).toEqual([['bot1', true]]);
   });
 
-  it('A1: a player socket that creates a room leaves its player disconnected in the old room', async () => {
+  it('A1: a player socket that creates a room releases its player in the old room', async () => {
     const h = await startServer();
     const { roomCode } = await createRoom(h);
     const ana = await join(h, roomCode, 'Ana');
     ana.player.socket.emit('host:create', { topic: 'Otra', count: 5, difficulty: 'easy' });
     await ana.player.next('host:created');
-    expect(h.registry.get(roomCode)?.players[0]?.connected).toBe(false);
+    expect(h.registry.get(roomCode)?.players).toEqual([]);
   });
 
   it('M1: re-sending player:join for a connected player does not broadcast to the room', async () => {
@@ -511,5 +515,55 @@ describe('security review B3: swept rooms release their sockets', () => {
       expect(host.socket.connected).toBe(false);
       expect(ana.player.socket.connected).toBe(false);
     });
+  });
+});
+
+describe('security review B5: nicknames are normalized before reaching the engine', () => {
+  it('a zero-width or fullwidth copy of a taken nickname is NICKNAME_TAKEN', async () => {
+    const h = await startServer();
+    const { roomCode } = await createRoom(h);
+    await join(h, roomCode, 'Ana');
+    for (const copy of ['A\u200Bna', '\uFF21na', ' Ana\u202E ']) {
+      const c = await client(h);
+      c.socket.emit('player:join', { roomCode, nickname: copy });
+      expect(await errorCode(c, 0)).toBe('NICKNAME_TAKEN');
+    }
+  });
+});
+
+describe('security review A1/M4: player:join is limited per socket', () => {
+  it(`allows ${String(PLAYER_JOIN_LIMIT)} joins per socket per minute, then RATE_LIMITED, counting failed attempts too`, async () => {
+    const h = await startServer();
+    const { roomCode } = await createRoom(h);
+    const bot = await client(h);
+    for (let i = 0; i < PLAYER_JOIN_LIMIT - 1; i++) bot.socket.emit('player:join', { roomCode: 'ZZZZZZ', nickname: `bot${String(i)}` });
+    bot.socket.emit('player:join', { roomCode, nickname: 'bot' });
+    await bot.next('player:joined');
+    const since = bot.mark();
+    bot.socket.emit('player:join', { roomCode, nickname: 'otro' });
+    expect(await errorCode(bot, since)).toBe('RATE_LIMITED');
+    expect(h.registry.get(roomCode)?.players.map((p) => p.nickname)).toEqual(['bot']);
+  });
+
+  it('the limit is per socket: another socket from the same IP can still join', async () => {
+    const h = await startServer();
+    const { roomCode } = await createRoom(h);
+    const bot = await client(h);
+    for (let i = 0; i <= PLAYER_JOIN_LIMIT; i++) bot.socket.emit('player:join', { roomCode: 'ZZZZZZ', nickname: 'x' });
+    await bot.next('error', 0, (p) => ErrorPayloadSchema.parse(p).code === 'RATE_LIMITED');
+    await join(h, roomCode, 'Ana');
+  });
+
+  it('the window slides: after a minute the socket can join again', async () => {
+    const h = await startServer();
+    const { roomCode } = await createRoom(h);
+    const bot = await client(h);
+    for (let i = 0; i < PLAYER_JOIN_LIMIT; i++) bot.socket.emit('player:join', { roomCode: 'ZZZZZZ', nickname: 'x' });
+    await vi.waitFor(() => {
+      expect(bot.received('error')).toHaveLength(PLAYER_JOIN_LIMIT);
+    });
+    h.clock.now += PLAYER_JOIN_WINDOW_MS;
+    bot.socket.emit('player:join', { roomCode, nickname: 'Ana' });
+    await bot.next('player:joined');
   });
 });

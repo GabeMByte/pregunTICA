@@ -79,6 +79,11 @@ function join(state: GameState, playerId: string, rawNickname: string): EngineRe
 
 function disconnect(state: GameState, playerId: string): EngineResult {
   if (!hasPlayer(state, playerId)) return failure('PLAYER_NOT_FOUND');
+  // Before the game starts there is no score to keep: free the slot and the nickname, so
+  // disconnected players can never fill the room. Coming back means joining as a new player.
+  if (state.phase === 'GENERATING' || state.phase === 'LOBBY') {
+    return success({ ...state, players: state.players.filter((p) => p.id !== playerId) });
+  }
   return success(revealIfEveryoneAnswered(updatePlayer(state, playerId, { connected: false })));
 }
 
