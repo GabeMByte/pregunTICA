@@ -167,6 +167,7 @@ Hallazgos de la revisión de seguridad del Día 3 que no se corrigen en el MVP:
 
 Hallazgos de la revisión de seguridad del Día 4 que no se corrigen en el MVP:
 
+- **El banco de respaldo es público** (`fallback.es.json` y `fallback.en.json` en el repositorio, 15 preguntas por idioma, y una partida puede usar hasta 15): si la IA no responde, un jugador que conozca el repo puede reconocer las preguntas y buscar las respuestas. Se mitiga enviando `questionOrigin` solo al host y barajando preguntas y opciones en cada partida; el texto de la respuesta correcta sigue siendo el mismo.
 - **La caché reutiliza las mismas preguntas entre salas**: aunque el orden se baraja en cada entrega, quien juegue antes el mismo tema reconoce el texto de la respuesta correcta. Requiere crear otra sala con el mismo tema, cantidad, dificultad e idioma.
 - **El filtro de temas no aplica cuando la IA no responde** (timeout, error o sin clave): las preguntas del banco son inofensivas y solo el host elige el tema que se muestra.
 - **Los temas rechazados no se cachean**: repetirlos vuelve a llamar a la API, pero cada intento cuenta para el límite de salas por IP y para el tope global.
