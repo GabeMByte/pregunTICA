@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
     "@preguntica/shared": "workspace:*",
     "socket.io": "^4.8.4",
     "zod": "^4.6.7"
