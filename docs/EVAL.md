@@ -39,6 +39,19 @@ Los porcentajes se calculan sobre las 20 generaciones legítimas (variados + del
 - **El reintento cuesta tiempo:** las generaciones con reintento tardaron entre 7,4 y 11,3 s (frente a 4,1 s de promedio en las 11 que pasaron a la primera), y 7 de las 9 superaron los 8 s de la demo.
 - El JSON solo guarda las preguntas finales, así que no se sabe por cuántos caracteres se pasaban las de la primera respuesta.
 
+## Pruebas manuales con la app real
+
+Con `pnpm smoke` contra el servidor local (`pnpm dev`) y `claude-sonnet-5-5`, de punta a punta por Socket.io:
+
+| Prueba | Tiempo hasta LOBBY | Resultado |
+|---|---|---|
+| "Volcanes de Costa Rica" (es) | 5569 ms | `questionOrigin: ai` |
+| "Volcanes de Costa Rica" repetido | 5 ms | Desde la caché, con otro orden de preguntas y opciones |
+| "The Solar System" (en) | 4111 ms | `questionOrigin: ai` |
+| Tema con inyección de instrucciones | 1197 ms | `TOPIC_REJECTED`, la sala se cierra |
+
+Las dos generaciones reales quedan bajo los 8 s de la demo (SPEC §9), la caché las vuelve instantáneas y el rechazo llega en poco más de 1 s.
+
 ## Decisión
 
 **Nos quedamos con `claude-sonnet-5-5`** (el valor por defecto de `ANTHROPIC_MODEL`): 100 % válido a la primera, ningún reintento, el tiempo más bajo y un p95 de 5,8 s. Haiku es una opción más barata, pero en el 45 % de los casos necesita un reintento (que en 7 de cada 9 deja la creación de la sala por encima de 8 s) y en el 5 % termina en el banco local.
