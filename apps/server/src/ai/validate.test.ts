@@ -146,3 +146,50 @@ describe('SPEC §6 validation of submit_questions: extra checks', () => {
     expect(errors.some((e) => e.includes('expected exactly 5'))).toBe(true);
   });
 });
+
+describe('security review B6: returned texts are normalized like user text (normalizeText)', () => {
+  it('a bidi override inside an option is dropped: "Par\u202Eis" comes back as "Paris"', () => {
+    const input = withQuestion(0, { options: ['Par‮is', 'Rome', 'Lima', 'Quito'] });
+    const [first] = questionsOf(validateQuestions(input, 5));
+    expect(first?.options).toEqual(['Paris', 'Rome', 'Lima', 'Quito']);
+  });
+
+  it('the prompt loses zero-width characters and inner double spaces', () => {
+    const input = withQuestion(2, { prompt: '  What​ is  the​ capital   of Peru?  ' });
+    const questions = questionsOf(validateQuestions(input, 5));
+    expect(questions[2]?.prompt).toBe('What is the capital of Peru?');
+  });
+
+  it('the explanation is normalized too (NFKC, invisible characters, tabs and newlines)', () => {
+    const input = withQuestion(1, { explanation: 'Ｌima​ is\tthe\n capital‮.' });
+    const questions = questionsOf(validateQuestions(input, 5));
+    expect(questions[1]?.explanation).toBe('Lima is the capital.');
+  });
+
+  it('NFKC: a fullwidth option comes back in plain letters', () => {
+    const input = withQuestion(0, { options: ['Ｐａｒｉｓ', 'Rome', 'Lima', 'Quito'] });
+    const [first] = questionsOf(validateQuestions(input, 5));
+    expect(first?.options[0]).toBe('Paris');
+  });
+
+  it('normalization keeps correctIndex and the other fields untouched', () => {
+    const input = withQuestion(3, { options: ['A​', 'B', 'C', 'D'], correctIndex: 0 });
+    const questions = questionsOf(validateQuestions(input, 5));
+    expect(questions[3]).toMatchObject({ options: ['A', 'B', 'C', 'D'], correctIndex: 0 });
+    expect(questions[0]).toEqual(makeQuestions(5)[0]);
+  });
+
+  it('options "Lima" and "Li\u200Bma" are duplicated options at questions[i].options', () => {
+    const input = withQuestion(1, { options: ['Lima', 'Li​ma', 'Rome', 'Quito'] });
+    expectErrorAt(errorsOf(validateQuestions(input, 5)), 'questions[1].options');
+  });
+
+  it('a prompt made only of invisible characters is an error at questions[i].prompt', () => {
+    expectErrorAt(errorsOf(validateQuestions(withQuestion(0, { prompt: '​​' }), 5)), 'questions[0].prompt');
+  });
+
+  it('an option made only of invisible characters is an error at questions[i].options', () => {
+    const input = withQuestion(4, { options: ['A', '​‮', 'C', 'D'] });
+    expectErrorAt(errorsOf(validateQuestions(input, 5)), 'questions[4].options');
+  });
+});

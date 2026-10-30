@@ -24,7 +24,7 @@ export function validateQuestions(input: unknown, expectedCount: number): Valida
     errors.push(`questions: expected exactly ${String(expectedCount)} questions, got ${String(raw.length)}`);
   }
 
-  const parsed = SubmitInputSchema.safeParse(input);
+  const parsed = SubmitInputSchema.safeParse(normalizeTexts(input));
   if (!parsed.success) return { ok: false, errors: [...errors, ...parsed.error.issues.map(describeIssue)] };
 
   const { questions } = parsed.data;
@@ -42,6 +42,27 @@ export function validateQuestions(input: unknown, expectedCount: number): Valida
   });
 
   return errors.length === 0 ? { ok: true, questions } : { ok: false, errors };
+}
+
+/**
+ * Security review B6: the model's texts get the same cleanup as player input (NFKC, no invisible,
+ * bidi or control characters, collapsed spaces) before the limits apply. Anything that is not the
+ * expected shape is left as is, so the schema still reports it.
+ */
+function normalizeTexts(input: unknown): unknown {
+  if (!isRecord(input) || !Array.isArray(input.questions)) return input;
+  const questions: unknown[] = input.questions.map((question: unknown) => {
+    if (!isRecord(question)) return question;
+    const copy: Record<string, unknown> = { ...question };
+    for (const key of ['prompt', 'explanation']) if (typeof copy[key] === 'string') copy[key] = normalizeText(copy[key]);
+    if (Array.isArray(copy.options)) copy.options = copy.options.map((option: unknown) => (typeof option === 'string' ? normalizeText(option) : option));
+    return copy;
+  });
+  return { ...input, questions };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** "questions[2].options[1]: Too big: expected string to have <=60 characters". */
