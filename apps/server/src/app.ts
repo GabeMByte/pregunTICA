@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { createServer, type Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
-import { LocalQuestionSource, loadFallbackBank } from './ai/local-question-source.js';
+import { LocalQuestionSource, loadFallbackBanks } from './ai/local-question-source.js';
 import type { QuestionSource } from './rooms/question-source.js';
 import { RoomRegistry, type Scheduler } from './rooms/room-registry.js';
 import { broadcastChange, notifyGenerationError, notifyTopicRejected, registerHandlers } from './socket/handlers.js';
@@ -24,8 +24,11 @@ export interface App {
   registry: RoomRegistry;
 }
 
-/** crypto.randomInt needs max - min < 2^48; 2^32 is plenty for picking room code characters. */
+/** crypto.randomInt needs max - min < 2^48; 2^32 is plenty for room codes and shuffling 4 options. */
 const RANDOM_RANGE = 2 ** 32;
+
+/** A number in [0, 1) from the crypto RNG. */
+export const secureRandom = (): number => randomInt(RANDOM_RANGE) / RANDOM_RANGE;
 
 /** setTimeout-based scheduler. A throwing callback is logged: an uncaught timer error would kill every room. */
 export const realScheduler: Scheduler = {
@@ -45,7 +48,7 @@ export const realScheduler: Scheduler = {
 export function createApp(overrides: Partial<AppOptions> = {}): App {
   const options: AppOptions = {
     trustProxy: false,
-    questionSource: overrides.questionSource ?? new LocalQuestionSource(loadFallbackBank()),
+    questionSource: overrides.questionSource ?? new LocalQuestionSource(loadFallbackBanks(), secureRandom),
     clock: Date.now,
     scheduler: realScheduler,
     ...overrides,
@@ -64,7 +67,7 @@ export function createApp(overrides: Partial<AppOptions> = {}): App {
 
   const registry = new RoomRegistry({
     clock: options.clock,
-    random: () => randomInt(RANDOM_RANGE) / RANDOM_RANGE,
+    random: secureRandom,
     newToken: randomUUID,
     questionSource: options.questionSource,
     scheduler: options.scheduler,

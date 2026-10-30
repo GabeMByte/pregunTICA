@@ -1,0 +1,92 @@
+[
+  {
+    "prompt": "What is the largest planet in the solar system?",
+    "options": ["Jupiter", "Saturn", "Neptune", "Earth"],
+    "correctIndex": 0,
+    "explanation": "Jupiter is about 11 times wider than Earth and more massive than all the other planets combined."
+  },
+  {
+    "prompt": "Which ocean is the largest on Earth?",
+    "options": ["Atlantic", "Pacific", "Indian", "Arctic"],
+    "correctIndex": 1,
+    "explanation": "The Pacific covers about a third of the planet's surface, more than all land combined."
+  },
+  {
+    "prompt": "Who painted the Mona Lisa?",
+    "options": ["Michelangelo", "Raphael", "Leonardo da Vinci", "Caravaggio"],
+    "correctIndex": 2,
+    "explanation": "Leonardo da Vinci painted it in the early 16th century; it hangs in the Louvre in Paris."
+  },
+  {
+    "prompt": "What is the chemical symbol for gold?",
+    "options": ["Go", "Gd", "Ag", "Au"],
+    "correctIndex": 3,
+    "explanation": "Au comes from the Latin word aurum. Ag, by contrast, is silver."
+  },
+  {
+    "prompt": "How many continents are there in the most common model taught in schools?",
+    "options": ["Seven", "Five", "Six", "Eight"],
+    "correctIndex": 0,
+    "explanation": "The seven-continent model counts Africa, Antarctica, Asia, Australia, Europe, North America and South America."
+  },
+  {
+    "prompt": "Which gas do plants absorb from the air for photosynthesis?",
+    "options": ["Oxygen", "Carbon dioxide", "Nitrogen", "Hydrogen"],
+    "correctIndex": 1,
+    "explanation": "Plants take in carbon dioxide and, using sunlight and water, produce sugars and release oxygen."
+  },
+  {
+    "prompt": "In which country were the first modern Olympic Games held in 1896?",
+    "options": ["France", "Italy", "Greece", "United Kingdom"],
+    "correctIndex": 2,
+    "explanation": "Athens hosted the first modern Games, honoring the ancient Olympics of Greece."
+  },
+  {
+    "prompt": "What is the longest river in South America?",
+    "options": ["Orinoco", "Paraná", "Magdalena", "Amazon"],
+    "correctIndex": 3,
+    "explanation": "The Amazon runs about 6,400 km and carries more water than any other river in the world."
+  },
+  {
+    "prompt": "Which instrument has 88 keys in its standard modern form?",
+    "options": ["Piano", "Organ", "Harpsichord", "Accordion"],
+    "correctIndex": 0,
+    "explanation": "A standard modern piano has 52 white keys and 36 black keys, 88 in total."
+  },
+  {
+    "prompt": "What is the hardest natural material?",
+    "options": ["Quartz", "Diamond", "Granite", "Topaz"],
+    "correctIndex": 1,
+    "explanation": "Diamond, made of carbon atoms in a rigid lattice, scores 10 on the Mohs hardness scale."
+  },
+  {
+    "prompt": "Who wrote the novel One Hundred Years of Solitude?",
+    "options": ["Mario Vargas Llosa", "Isabel Allende", "Gabriel García Márquez", "Julio Cortázar"],
+    "correctIndex": 2,
+    "explanation": "Colombian author Gabriel García Márquez published it in 1967; he won the Nobel Prize in 1982."
+  },
+  {
+    "prompt": "What is the capital city of Canada?",
+    "options": ["Toronto", "Vancouver", "Montreal", "Ottawa"],
+    "correctIndex": 3,
+    "explanation": "Ottawa, in Ontario, became the capital in 1857, chosen partly as a compromise between cities."
+  },
+  {
+    "prompt": "How many bones does an adult human body usually have?",
+    "options": ["206", "180", "250", "300"],
+    "correctIndex": 0,
+    "explanation": "Babies are born with around 300 bones, and many fuse during growth into the adult 206."
+  },
+  {
+    "prompt": "Which country is home to the ancient city of Machu Picchu?",
+    "options": ["Bolivia", "Peru", "Ecuador", "Chile"],
+    "correctIndex": 1,
+    "explanation": "The Inca citadel sits high in the Andes of southern Peru and was built in the 15th century."
+  },
+  {
+    "prompt": "What does a thermometer measure?",
+    "options": ["Air pressure", "Humidity", "Temperature", "Wind speed"],
+    "correctIndex": 2,
+    "explanation": "A thermometer measures temperature; air pressure is measured with a barometer."
+  }
+]
