@@ -99,14 +99,14 @@ pregunTICA/
 | C→S | `player:answer` | `{ roomCode, questionIndex, optionIndex }` |
 | S→C | `host:created` | `{ roomCode, hostToken }` (solo al host) |
 | S→C | `player:joined` | `{ playerId, nickname, waitingForNextQuestion }` (solo a ese jugador) |
-| S→C | `room:state` | Estado público de la sala (fase, jugadores, índice, `questionOrigin`: `ai` \| `fallback` \| `null`) |
+| S→C | `room:state` | Estado público de la sala (fase, jugadores, índice; solo la copia del host lleva `questionOrigin`: `ai` \| `fallback` \| `null`) |
 | S→C | `question:start` | `{ index, total, prompt, options, endsAt }` (sin respuesta correcta) |
 | S→C | `question:reveal` | `{ correctIndex, distribution, explanation, yourResult? }` |
 | S→C | `leaderboard` | `{ top: [{ nickname, score, delta }] }` |
 | S→C | `game:end` | `{ podium }` |
 | S→C | `error` | `{ code, message }` |
 
-`questionOrigin` es `null` mientras se generan las preguntas y `fallback` si salieron del banco local: el host lo muestra para que se sepa que la IA no respondió.
+`questionOrigin` es `null` mientras se generan las preguntas y `fallback` si salieron del banco local: el host lo muestra para que se sepa que la IA no respondió. Solo lo recibe el host: el banco local es público, así que avisar a los jugadores les diría dónde buscar las respuestas.
 
 `playerId` se genera en el cliente y se guarda en `localStorage` para reconexión (si no se envía, el servidor genera uno y lo devuelve en `player:joined`). `hostToken` lo genera el servidor, solo viaja en `host:created` y el host lo guarda para `host:rejoin`. Ninguno de los dos se envía nunca a otros clientes.
 
@@ -121,7 +121,7 @@ pregunTICA/
 - **Barajar las opciones en el servidor** con aleatoriedad inyectada (los modelos tienden a sesgar la posición correcta).
 - Idioma de las preguntas: español o inglés, según `language`.
 - **Timeout de 15 s** (incluye el reintento); luego, respaldo.
-- **Respaldo para la demo**: si la API falla, se agota el tiempo o no hay `ANTHROPIC_API_KEY`, se usan los bancos locales `apps/server/src/ai/fallback.es.json` y `fallback.en.json`, y la sala lo indica con `questionOrigin: 'fallback'`.
+- **Respaldo para la demo**: si la API falla, se agota el tiempo o no hay `ANTHROPIC_API_KEY`, se usan los bancos locales `apps/server/src/ai/fallback.es.json` y `fallback.en.json`, y el host lo ve con `questionOrigin: 'fallback'`.
 - **Tema rechazado**: el host recibe `error TOPIC_REJECTED`, los jugadores que hubieran entrado reciben `ROOM_NOT_FOUND` y la sala se cierra. No se usa el respaldo (sería saltarse el filtro) y el intento cuenta para el límite de salas por IP.
 - **Caché** en memoria por tema normalizado (NFKC, minúsculas, espacios colapsados) + `count` + `difficulty` + `language`. Solo guarda preguntas generadas por la IA; máximo 100 entradas.
 - **`WARM_TOPICS`** (lista separada por comas): al arrancar se precalienta la caché con esos temas en español, 5 preguntas, dificultad media.

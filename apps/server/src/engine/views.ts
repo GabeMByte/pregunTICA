@@ -14,6 +14,7 @@ import type { GameState, Player } from './types.js';
 // Views build S→C payloads field by field (never by spreading state) so that
 // answers and player ids cannot leak by accident (CLAUDE.md rule #2).
 
+/** The players copy: never says where the questions came from (the fallback bank is public). */
 export function toRoomState(state: GameState): RoomStatePayload {
   return {
     roomCode: state.code,
@@ -22,8 +23,12 @@ export function toRoomState(state: GameState): RoomStatePayload {
     players: state.players.map(({ nickname, score, connected }) => ({ nickname, score, connected })),
     questionIndex: state.questionIndex,
     totalQuestions: state.totalQuestions,
-    questionOrigin: state.questionOrigin,
   };
+}
+
+/** SPEC §5: the host copy adds questionOrigin, so the host knows when the local bank was used. */
+export function toHostRoomState(state: GameState): RoomStatePayload {
+  return { ...toRoomState(state), questionOrigin: state.questionOrigin };
 }
 
 /** Null outside QUESTION. Never includes the answer. */

@@ -607,4 +607,16 @@ describe('SPEC §6 Tema rechazado', () => {
     const lobby = host.received('room:state').map((p) => RoomStatePayloadSchema.parse(p)).find((p) => p.phase === 'LOBBY');
     expect(lobby?.questionOrigin).toBe('fallback');
   });
+
+  it('security review M2: players never receive the question origin', async () => {
+    const h = await startServer({
+      questionSource: { getQuestions: () => Promise.resolve({ questions: makeQuestions(5), origin: 'fallback' }) },
+    });
+    const { host, roomCode } = await createRoom(h);
+    const { player } = await join(h, roomCode, 'Ana');
+    host.socket.emit('host:start', { roomCode });
+    await player.next('question:start');
+    expect(player.received('room:state').length).toBeGreaterThan(0);
+    for (const state of player.received('room:state')) expect(state).not.toHaveProperty('questionOrigin');
+  });
 });

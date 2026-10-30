@@ -46,14 +46,16 @@ const hostChannel = (roomCode: string) => `host:${roomCode}`;
 const playerChannel = (roomCode: string, playerId: string) => `player:${roomCode}:${playerId}`;
 const playerKey = (roomCode: string, playerId: string) => `${roomCode}:${playerId}`;
 
-function channelFor(roomCode: string, target: Target): string {
+function emitterFor(io: GameServer, roomCode: string, target: Target): Emitter {
   switch (target.kind) {
     case 'room':
-      return roomChannel(roomCode);
+      return io.to(roomChannel(roomCode));
+    case 'players':
+      return io.to(roomChannel(roomCode)).except(hostChannel(roomCode));
     case 'host':
-      return hostChannel(roomCode);
+      return io.to(hostChannel(roomCode));
     case 'player':
-      return playerChannel(roomCode, target.playerId);
+      return io.to(playerChannel(roomCode, target.playerId));
   }
 }
 
@@ -90,7 +92,7 @@ function send(to: Emitter, message: Message): void {
 /** Wire as RoomRegistry's onChange: fans a state change out to the right sockets. */
 export function broadcastChange(io: GameServer, { roomCode, previous, next }: RoomChange): void {
   for (const { to, ...message } of eventsForTransition(previous, next)) {
-    send(io.to(channelFor(roomCode, to)), message);
+    send(emitterFor(io, roomCode, to), message);
   }
 }
 

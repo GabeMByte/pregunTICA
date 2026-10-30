@@ -29,28 +29,32 @@ const events = (messages: readonly Message[]) => messages.map((m) => m.event);
 const targets = (emissions: readonly Emission[], event: string) => emissions.filter((e) => e.event === event).map((e) => e.to);
 
 describe('eventsForTransition', () => {
-  it('always sends the public room state to the room', () => {
-    const emissions = eventsForTransition(at('LOBBY'), at('LOBBY', { players: [makePlayer(1), makePlayer(2), makePlayer(3)] }));
+  it('always sends the room state: the host copy with questionOrigin, the players copy without it (M2)', () => {
+    const emissions = eventsForTransition(at('LOBBY'), at('LOBBY', { players: [makePlayer(1), makePlayer(2), makePlayer(3)], questionOrigin: 'fallback' }));
     validate(emissions);
-    expect(emissions).toEqual([expect.objectContaining({ to: { kind: 'room' }, event: 'room:state' })]);
+    expect(emissions).toEqual([
+      expect.objectContaining({ to: { kind: 'host' }, event: 'room:state', payload: expect.objectContaining({ questionOrigin: 'fallback' }) as unknown }),
+      expect.objectContaining({ to: { kind: 'players' }, event: 'room:state' }),
+    ]);
+    expect(emissions[1]?.payload).not.toHaveProperty('questionOrigin');
   });
 
   it('LOBBY → QUESTION broadcasts the question without the answer', () => {
     const emissions = eventsForTransition(at('LOBBY'), at('QUESTION'));
     validate(emissions);
-    expect(events(emissions)).toEqual(['room:state', 'question:start']);
+    expect(events(emissions)).toEqual(['room:state', 'room:state', 'question:start']);
     expect(targets(emissions, 'question:start')).toEqual([{ kind: 'room' }]);
     expect(JSON.stringify(emissions)).not.toContain('correctIndex');
   });
 
   it('LEADERBOARD → QUESTION broadcasts the next question', () => {
     const emissions = eventsForTransition(at('LEADERBOARD', { questionIndex: 0 }), at('QUESTION', { questionIndex: 1 }));
-    expect(events(emissions)).toEqual(['room:state', 'question:start']);
+    expect(events(emissions)).toEqual(['room:state', 'room:state', 'question:start']);
   });
 
   it('an answer inside QUESTION only refreshes the room state', () => {
     const answered = at('QUESTION', { answers: { [playerId(1)]: { optionIndex: 0, elapsedMs: 10 } } });
-    expect(events(eventsForTransition(at('QUESTION'), answered))).toEqual(['room:state']);
+    expect(events(eventsForTransition(at('QUESTION'), answered))).toEqual(['room:state', 'room:state']);
   });
 
   it('QUESTION → REVEAL sends one copy per player with its own result and one to the host without results', () => {
@@ -70,13 +74,13 @@ describe('eventsForTransition', () => {
   it('REVEAL → LEADERBOARD broadcasts the leaderboard', () => {
     const emissions = eventsForTransition(at('REVEAL'), at('LEADERBOARD'));
     validate(emissions);
-    expect(events(emissions)).toEqual(['room:state', 'leaderboard']);
+    expect(events(emissions)).toEqual(['room:state', 'room:state', 'leaderboard']);
   });
 
   it('LEADERBOARD → PODIUM broadcasts the podium', () => {
     const emissions = eventsForTransition(at('LEADERBOARD'), at('PODIUM'));
     validate(emissions);
-    expect(events(emissions)).toEqual(['room:state', 'game:end']);
+    expect(events(emissions)).toEqual(['room:state', 'room:state', 'game:end']);
   });
 
   it('never includes player ids in room broadcasts', () => {
@@ -140,6 +144,13 @@ describe('snapshotFor (join and reconnection)', () => {
     const messages = snapshotFor(at(phase), { role: 'host' });
     validate(messages);
     expect(events(messages)).toEqual(expected);
+  });
+
+  it('security review M2: only the host snapshot carries questionOrigin', () => {
+    const state = at('LOBBY', { players: [makePlayer(1)], questionOrigin: 'fallback' });
+    const roomState = (messages: readonly Message[]) => messages.find((m) => m.event === 'room:state')?.payload;
+    expect(roomState(snapshotFor(state, { role: 'host' }))).toMatchObject({ questionOrigin: 'fallback' });
+    expect(roomState(snapshotFor(state, { role: 'player', playerId: playerId(1) }))).not.toHaveProperty('questionOrigin');
   });
 
   it('an unknown player id gets only the public state', () => {

@@ -1,20 +1,34 @@
 import type { Phase, ServerEvent, ServerToClientEvents } from '@preguntica/shared';
-import { toLeaderboard, toPodium, toQuestionStart, toReveal, toRoomState, type GameState, type Player } from '../engine/index.js';
+import {
+  toHostRoomState,
+  toLeaderboard,
+  toPodium,
+  toQuestionStart,
+  toReveal,
+  toRoomState,
+  type GameState,
+  type Player,
+} from '../engine/index.js';
 
 /** A typed S→C event. The union keeps each event paired with its own payload type. */
 export type Message = { [E in ServerEvent]: { event: E; payload: Parameters<ServerToClientEvents[E]>[0] } }[ServerEvent];
 
-export type Target = { kind: 'room' } | { kind: 'host' } | { kind: 'player'; playerId: string };
+/** 'players': everyone in the room except the host. */
+export type Target = { kind: 'room' } | { kind: 'players' } | { kind: 'host' } | { kind: 'player'; playerId: string };
 export type Emission = Message & { to: Target };
 
 export type Viewer = { role: 'host' } | { role: 'player'; playerId: string };
 
 const ROOM: Target = { kind: 'room' };
 const HOST: Target = { kind: 'host' };
+const PLAYERS: Target = { kind: 'players' };
 
 /** What each client must receive after the room went from `previous` to `next`. */
 export function eventsForTransition(previous: GameState, next: GameState): Emission[] {
-  const emissions: Emission[] = [{ to: ROOM, event: 'room:state', payload: toRoomState(next) }];
+  const emissions: Emission[] = [
+    { to: HOST, event: 'room:state', payload: toHostRoomState(next) },
+    { to: PLAYERS, event: 'room:state', payload: toRoomState(next) },
+  ];
 
   const question = toQuestionStart(next);
   if (question !== null && isNewQuestion(previous, next)) {
@@ -54,7 +68,7 @@ export function snapshotFor(state: GameState, viewer: Viewer): Message[] {
       payload: { playerId: player.id, nickname: player.nickname, waitingForNextQuestion: waiting },
     });
   }
-  messages.push({ event: 'room:state', payload: toRoomState(state) });
+  messages.push({ event: 'room:state', payload: viewer.role === 'host' ? toHostRoomState(state) : toRoomState(state) });
 
   switch (state.phase) {
     case 'QUESTION': {

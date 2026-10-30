@@ -11,7 +11,7 @@ import {
 } from '@preguntica/shared';
 import type { Phase } from '@preguntica/shared';
 import type { GameState } from './types.js';
-import { toLeaderboard, toPodium, toQuestionStart, toReveal, toRoomState } from './views.js';
+import { toHostRoomState, toLeaderboard, toPodium, toQuestionStart, toReveal, toRoomState } from './views.js';
 import { NOW, ROOM_CODE, at, makePlayer, makeQuestions, makeState, nickname, playerId } from './test-helpers.js';
 
 const T = QUESTION_TIME_MS;
@@ -61,12 +61,17 @@ describe('CLAUDE.md rule #2 / SPEC §3: toRoomState (public room view)', () => {
       ],
       questionIndex: null,
       totalQuestions: 5,
-      questionOrigin: 'ai',
     });
   });
 
-  it.each(['fallback', null] as const)('SPEC §5: exposes questionOrigin %s so the host knows the AI did not answer', (questionOrigin) => {
-    expect(toRoomState(makeState({ questionOrigin })).questionOrigin).toBe(questionOrigin);
+  it('security review M2: the players copy never says where the questions came from', () => {
+    expect(toRoomState(makeState({ questionOrigin: 'fallback' }))).not.toHaveProperty('questionOrigin');
+  });
+
+  it.each(['ai', 'fallback', null] as const)('SPEC §5: the host copy exposes questionOrigin %s', (questionOrigin) => {
+    const state = makeState({ questionOrigin });
+    const host = RoomStatePayloadSchema.parse(toHostRoomState(state));
+    expect(host).toEqual({ ...toRoomState(state), questionOrigin });
   });
 
   it('never leaks player ids', () => {

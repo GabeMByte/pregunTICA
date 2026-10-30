@@ -136,8 +136,11 @@ export const RoomStatePayloadSchema = z.strictObject({
   /** Index of the current question; null before the first one starts. */
   questionIndex: z.int().min(0).nullable(),
   totalQuestions: z.int().min(MIN_QUESTIONS).max(MAX_QUESTIONS),
-  /** null while GENERATING; 'fallback' tells the host the AI did not answer. */
-  questionOrigin: QuestionOriginSchema.nullable(),
+  /**
+   * Only in the host copy: null while GENERATING; 'fallback' tells the host the AI did not answer.
+   * Players never get it, since the fallback bank is public (security review M2).
+   */
+  questionOrigin: QuestionOriginSchema.nullable().optional(),
 });
 
 export const QuestionStartPayloadSchema = z.strictObject({

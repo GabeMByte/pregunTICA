@@ -219,8 +219,12 @@ describe('room:state', () => {
     expect(RoomStatePayloadSchema.safeParse({ ...payload, questionOrigin }).success).toBe(true);
   });
 
-  it('requires questionOrigin and rejects unknown origins', () => {
-    expect(RoomStatePayloadSchema.safeParse({ ...payload, questionOrigin: undefined }).success).toBe(false);
+  it('security review M2: questionOrigin is optional (only the host copy carries it)', () => {
+    const { questionOrigin: _hostOnly, ...forPlayers } = payload;
+    expect(RoomStatePayloadSchema.safeParse(forPlayers).success).toBe(true);
+  });
+
+  it('rejects unknown origins', () => {
     expect(RoomStatePayloadSchema.safeParse({ ...payload, questionOrigin: 'cache' }).success).toBe(false);
   });
 
