@@ -6,7 +6,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/socket.io': { target: 'http://localhost:3000', ws: true },
+      // E2E points this at its own server (e2e/playwright.config.ts).
+      '/socket.io': { target: process.env.SERVER_URL ?? 'http://localhost:3000', ws: true },
     },
   },
   test: {

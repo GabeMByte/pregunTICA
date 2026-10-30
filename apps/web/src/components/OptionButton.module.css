@@ -1,0 +1,160 @@
+.option {
+  --option-color: var(--color-option-a);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 4.5rem;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-m);
+  background: var(--option-color);
+  color: var(--color-ink-dark);
+  text-align: start;
+  box-shadow: var(--shadow-pop);
+  transition:
+    transform 120ms ease,
+    opacity 200ms ease,
+    filter 200ms ease;
+}
+
+button.option {
+  cursor: pointer;
+}
+
+button.option:not(:disabled):active {
+  transform: translateY(0.2rem);
+  box-shadow: none;
+}
+
+button.option:disabled {
+  cursor: default;
+}
+
+.triangle {
+  --option-color: var(--color-option-a);
+}
+
+.diamond {
+  --option-color: var(--color-option-b);
+}
+
+.circle {
+  --option-color: var(--color-option-c);
+}
+
+.square {
+  --option-color: var(--color-option-d);
+}
+
+/* The shape sits on a dark disc, so it reads even in grayscale and on any option color. */
+.badge {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--color-ink-dark);
+  color: var(--option-color);
+}
+
+.shape {
+  width: 62%;
+}
+
+.letter {
+  position: absolute;
+  inset-block-end: -0.35rem;
+  inset-inline-end: -0.35rem;
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--color-ink);
+  color: var(--color-ink-dark);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.text {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.status {
+  position: absolute;
+  inset-block-start: -0.7rem;
+  inset-inline-end: var(--space-3);
+  padding: 0.1rem var(--space-2);
+  border-radius: var(--radius-s);
+  background: var(--color-ink-dark);
+  color: var(--color-ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.selected {
+  outline: 0.3rem solid var(--color-ink);
+  outline-offset: 0.2rem;
+}
+
+.correct {
+  outline: 0.3rem solid var(--color-ink);
+  outline-offset: 0.2rem;
+}
+
+.correct .status {
+  background: var(--color-correct);
+  color: var(--color-ink-dark);
+}
+
+/* Faded by tinting the surface, not with opacity, so the "Incorrecta" label keeps full contrast. */
+.wrong,
+.dimmed {
+  background: color-mix(in srgb, var(--option-color) 22%, var(--color-night));
+  color: var(--color-ink-muted);
+  box-shadow: none;
+}
+
+.wrong .badge,
+.dimmed .badge {
+  background: var(--color-night);
+}
+
+.wrong .status {
+  background: var(--color-ink);
+  color: var(--color-ink-dark);
+}
+
+.projector {
+  min-height: 9rem;
+  padding: var(--space-4) var(--space-5) var(--space-4) var(--space-4);
+  gap: var(--space-4);
+  border-radius: var(--radius-l);
+}
+
+.projector .badge {
+  width: 5.5rem;
+}
+
+.projector .letter {
+  width: 2.25rem;
+  font-size: 1.35rem;
+}
+
+.projector .text {
+  font-size: clamp(1.75rem, 2.4vw, 2.75rem);
+}
+
+.projector .status {
+  font-size: 1.25rem;
+}

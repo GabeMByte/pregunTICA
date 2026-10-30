@@ -1,0 +1,89 @@
+.screen {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-5);
+  min-height: 100dvh;
+  padding: var(--space-5) var(--space-3);
+  text-align: center;
+}
+
+.panel {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  max-width: 40rem;
+}
+
+.icon {
+  width: 4.5rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 0.5rem solid var(--color-night-line);
+}
+
+.connecting .icon {
+  border-top-color: var(--color-sky);
+  animation: spin 900ms linear infinite;
+}
+
+.disconnected .icon {
+  border-color: var(--color-option-c);
+  border-style: dashed;
+}
+
+.error .icon {
+  border-color: var(--color-coral);
+  background:
+    linear-gradient(var(--color-coral), var(--color-coral)) center 35% / 0.5rem 1.6rem no-repeat,
+    radial-gradient(circle, var(--color-coral) 0.3rem, transparent 0.35rem) center 78% / 1rem 1rem no-repeat;
+}
+
+.title {
+  font-size: clamp(2rem, 5vw, 4rem);
+  text-wrap: balance;
+}
+
+.message {
+  color: var(--color-ink-muted);
+  font-size: clamp(1.125rem, 2.2vw, 1.75rem);
+  text-wrap: balance;
+}
+
+.actions {
+  display: grid;
+  gap: var(--space-3);
+  width: min(100%, 22rem);
+}
+
+.primary,
+.secondary {
+  display: block;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-m);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary {
+  border: 0;
+  background: var(--color-coral);
+  color: var(--color-ink-dark);
+  box-shadow: var(--shadow-pop);
+}
+
+.secondary {
+  border: 0.15rem solid var(--color-night-line);
+  background: var(--color-night-raised);
+  color: var(--color-ink);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}

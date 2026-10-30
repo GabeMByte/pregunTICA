@@ -1,0 +1,34 @@
+.page {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-4);
+  min-height: 100dvh;
+  padding: var(--space-5) var(--space-3);
+  text-align: center;
+}
+
+.brand {
+  text-decoration: none;
+  border-radius: var(--radius-s);
+}
+
+.title {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+}
+
+.text {
+  font-size: clamp(1.25rem, 3vw, 2rem);
+  color: var(--color-ink-muted);
+}
+
+.code {
+  display: inline-block;
+  margin-inline-start: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-m);
+  background: var(--color-ink);
+  color: var(--color-ink-dark);
+  font-family: var(--font-display);
+  letter-spacing: 0.15em;
+}

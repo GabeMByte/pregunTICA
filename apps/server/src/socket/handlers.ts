@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import {
   HostCreatePayloadSchema,
+  HostKickPayloadSchema,
   HostNextPayloadSchema,
   HostRejoinPayloadSchema,
   HostStartPayloadSchema,
@@ -39,6 +40,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   NO_PLAYERS: 'Se necesita al menos un jugador conectado.',
   RATE_LIMITED: 'Demasiados intentos. Espera un momento y vuelve a probar.',
   TOPIC_REJECTED: 'Ese tema no está permitido. Prueba con otro.',
+  KICKED: 'El presentador te sacó de la sala.',
   INTERNAL: 'Ocurrió un error inesperado.',
 };
 
@@ -257,6 +259,33 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
     socket.on('host:next', guard((raw: unknown) => {
       const payload = parse(HostNextPayloadSchema, raw);
       if (payload !== null) hostAction('next', payload.roomCode);
+    }));
+
+    /** SPEC §3 Límites: the kicked player's socket gets KICKED and loses the room and its identity. */
+    const evictKickedPlayer = (roomCode: string, playerId: string): void => {
+      const channel = playerChannel(roomCode, playerId);
+      send(io.to(channel), { event: 'error', payload: { code: 'KICKED', message: ERROR_MESSAGES.KICKED } });
+      const socketId = playerSockets.get(playerKey(roomCode, playerId));
+      playerSockets.delete(playerKey(roomCode, playerId));
+      io.in(channel).socketsLeave([roomChannel(roomCode), channel]);
+      const kicked = socketId === undefined ? undefined : io.sockets.sockets.get(socketId);
+      if (kicked !== undefined) kicked.data = {};
+    };
+
+    socket.on('host:kick', guard((raw: unknown) => {
+      const payload = parse(HostKickPayloadSchema, raw);
+      if (payload === null) return;
+      if (!isHostOf(payload.roomCode)) {
+        fail('NOT_HOST');
+        return;
+      }
+      const result = registry.dispatch(payload.roomCode, { type: 'kick', nickname: payload.nickname });
+      if (!result.ok) {
+        fail(result.error);
+        return;
+      }
+      const kickedId = result.state.kickedIds.at(-1);
+      if (kickedId !== undefined) evictKickedPlayer(payload.roomCode, kickedId);
     }));
 
     socket.on('player:join', guard((raw: unknown) => {

@@ -1,0 +1,58 @@
+.timer {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 5rem;
+  aspect-ratio: 1;
+}
+
+.projector {
+  width: clamp(8rem, 10vw, 12rem);
+}
+
+.ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.track {
+  fill: var(--color-night-raised);
+  stroke: var(--color-night-line);
+  stroke-width: 8;
+}
+
+.progress {
+  fill: none;
+  stroke: var(--color-sky);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 250ms linear;
+}
+
+.seconds {
+  position: relative;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.projector .seconds {
+  font-size: clamp(3rem, 4vw, 4.5rem);
+}
+
+.urgent .progress {
+  stroke: var(--color-coral);
+}
+
+.urgent .seconds {
+  color: var(--color-coral);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    transform: scale(1.12);
+  }
+}

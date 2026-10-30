@@ -25,6 +25,7 @@ export function createGame({ code, topic, difficulty, count }: NewGame): GameSta
     questionEndsAt: null,
     answers: {},
     questionOrigin: null,
+    kickedIds: [],
   };
 }
 
@@ -44,6 +45,8 @@ export function reduce(state: GameState, action: GameAction, now: number): Engin
       return next(state, now);
     case 'answer':
       return answer(state, action.playerId, action.questionIndex, action.optionIndex, now);
+    case 'kick':
+      return kick(state, action.nickname);
   }
 }
 
@@ -63,6 +66,8 @@ function join(state: GameState, playerId: string, rawNickname: string): EngineRe
     return success(existing.connected ? state : updatePlayer(state, playerId, { connected: true }));
   }
 
+  // Before the PODIUM check: a kicked player always learns why it cannot come back.
+  if (state.kickedIds.includes(playerId)) return failure('KICKED');
   if (state.phase === 'PODIUM') return failure('INVALID_PHASE');
 
   const nickname = rawNickname.trim();
@@ -106,6 +111,30 @@ function answer(state: GameState, playerId: string, questionIndex: number, optio
 
   const answers = { ...state.answers, [playerId]: { optionIndex, elapsedMs: now - state.questionStartedAt } };
   return success(revealIfEveryoneAnswered({ ...state, answers }));
+}
+
+/**
+ * SPEC §3 Límites: the host removes a player by nickname (case-insensitive, like NICKNAME_TAKEN)
+ * in any phase but PODIUM. The player leaves `players`, its answer to the current question is
+ * dropped and its id goes to `kickedIds`, so join with that id fails with KICKED. In QUESTION, if
+ * every remaining connected eligible player already answered, the question is revealed.
+ * Unknown nickname → PLAYER_NOT_FOUND; PODIUM → INVALID_PHASE.
+ */
+function kick(state: GameState, nickname: string): EngineResult {
+  if (state.phase === 'PODIUM') return failure('INVALID_PHASE');
+  const wanted = nickname.trim().toLowerCase();
+  const player = state.players.find((p) => p.nickname.toLowerCase() === wanted);
+  if (player === undefined) return failure('PLAYER_NOT_FOUND');
+
+  const answers = Object.fromEntries(Object.entries(state.answers).filter(([id]) => id !== player.id));
+  return success(
+    revealIfEveryoneAnswered({
+      ...state,
+      players: state.players.filter((p) => p.id !== player.id),
+      answers,
+      kickedIds: [...state.kickedIds, player.id],
+    }),
+  );
 }
 
 function start(state: GameState, now: number): EngineResult {

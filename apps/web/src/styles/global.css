@@ -1,0 +1,83 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--color-night);
+  /* Soft festive glows in the brand colors; purely decorative. */
+  background-image:
+    radial-gradient(70vmax 50vmax at 105% -10%, rgb(255 90 95 / 24%), transparent 60%),
+    radial-gradient(70vmax 50vmax at -10% 110%, rgb(92 200 255 / 20%), transparent 60%);
+  background-attachment: fixed;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+
+/* A nod to the flag's proportions (1:1:2:1:1), not a copy of it: a thin ribbon on top of every page. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 10;
+  height: clamp(0.6rem, 1.2vh, 1rem);
+  background: linear-gradient(
+    var(--color-sky) 0 16.66%,
+    var(--color-ink) 16.66% 33.33%,
+    var(--color-coral) 33.33% 66.66%,
+    var(--color-ink) 66.66% 83.33%,
+    var(--color-sky) 83.33%
+  );
+  pointer-events: none;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+p {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

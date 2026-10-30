@@ -57,6 +57,7 @@ GENERATING → LOBBY → QUESTION → REVEAL → LEADERBOARD ─┬→ QUESTION
 - Máx. 50 jugadores por sala; apodo de 1–16 caracteres, único en la sala (sin distinguir mayúsculas). El apodo se normaliza con NFKC, se quitan los caracteres invisibles y de control y se colapsan los espacios; no se detectan homoglifos entre alfabetos.
 - Máx. 10 intentos de `player:join` por socket por minuto, contando los fallidos. Es por socket y no por IP porque un aula entera puede compartir la IP del router.
 - Salas inactivas por más de 1 h se eliminan.
+- El host puede **expulsar** a un jugador (`host:kick`) en cualquier fase menos PODIUM. El expulsado no puede volver con el mismo `playerId`; si entra con uno nuevo, lo hace como jugador nuevo. Si al expulsarlo en QUESTION ya respondieron todos los demás conectados, se pasa a REVEAL.
 - Máx. 5 salas creadas por IP cada 10 min. La IP es la del socket; solo si `TRUST_PROXY=true` (despliegue detrás del proxy de Render o Railway) se toma el último valor de `X-Forwarded-For` (el que agrega el proxy; los anteriores los controla el cliente).
 
 ## 4. Arquitectura
@@ -81,6 +82,12 @@ pregunTICA/
 └── e2e/                 Pruebas Playwright multijugador
 ```
 
+### Interfaz
+- **Rutas**: `/` inicio (crear partida o unirse), `/host` (presentador) y `/play/:code?` (jugador; el QR apunta a `/play/CODIGO` con el código ya puesto).
+- **Dirección visual**: festiva y de alto contraste, inspirada en los colores de la bandera de Costa Rica sin ser literal. El host se diseña para proyector (texto grande); el jugador, mobile first.
+- **Las 4 opciones se distinguen por color y por forma**: A rojo con triángulo, B azul con rombo, C amarillo con círculo, D verde con cuadrado. Nunca solo por color.
+- Un hook de estado por vista (`useHostGame`, `usePlayerGame`); todo lo que llega del servidor se valida con los esquemas Zod de `shared`. `hostToken` y `playerId` se guardan en `localStorage` para la reconexión.
+
 ### Principios
 - **Servidor autoritativo**: el cliente nunca recibe la respuesta correcta antes de REVEAL.
 - **Motor puro**: `engine/` expone un reducer `(state, action, now) => state`. El tiempo se inyecta, nunca se usa `Date.now()` dentro del motor.
@@ -95,6 +102,7 @@ pregunTICA/
 | C→S | `host:start` | `{ roomCode }` |
 | C→S | `host:next` | `{ roomCode }` |
 | C→S | `host:rejoin` | `{ roomCode, hostToken }` |
+| C→S | `host:kick` | `{ roomCode, nickname }` |
 | C→S | `player:join` | `{ roomCode, nickname, playerId? }` |
 | C→S | `player:answer` | `{ roomCode, questionIndex, optionIndex }` |
 | S→C | `host:created` | `{ roomCode, hostToken }` (solo al host) |
@@ -107,6 +115,8 @@ pregunTICA/
 | S→C | `error` | `{ code, message }` |
 
 `questionOrigin` es `null` mientras se generan las preguntas y `fallback` si salieron del banco local: el host lo muestra para que se sepa que la IA no respondió. Solo lo recibe el host: el banco local es público, así que avisar a los jugadores les diría dónde buscar las respuestas.
+
+Un jugador expulsado recibe `error KICKED` y sale de la sala; los demás ven el nuevo `room:state`. Se identifica por apodo porque es único en la sala y el `playerId` nunca sale del dispositivo del jugador.
 
 `playerId` se genera en el cliente y se guarda en `localStorage` para reconexión (si no se envía, el servidor genera uno y lo devuelve en `player:joined`). `hostToken` lo genera el servidor, solo viaja en `host:created` y el host lo guarda para `host:rejoin`. Ninguno de los dos se envía nunca a otros clientes.
 
@@ -173,5 +183,6 @@ Hallazgos de la revisión de seguridad del Día 4 que no se corrigen en el MVP:
 - **Los temas rechazados no se cachean**: repetirlos vuelve a llamar a la API, pero cada intento cuenta para el límite de salas por IP y para el tope global.
 - **Una sala cuyo respaldo también falla queda en GENERATING** hasta el barrido: requiere que falle el banco local, que se valida al arrancar.
 
-### Pendiente
-- `host:kick` (Día 5): el host puede expulsar a un jugador desde la pantalla del proyector. Se define primero en `packages/shared`.
+Decisiones del Día 5 que aceptan un riesgo:
+
+- **Un jugador expulsado puede volver con otro `playerId`** (por ejemplo, borrando el almacenamiento del navegador): entra como jugador nuevo y el host puede volver a expulsarlo. Bloquear por IP afectaría a toda un aula que comparte el router.

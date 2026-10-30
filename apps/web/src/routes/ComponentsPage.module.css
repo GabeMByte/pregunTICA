@@ -1,0 +1,65 @@
+.page {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 110rem;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-3);
+}
+
+.title {
+  font-size: clamp(2rem, 4vw, 3.5rem);
+}
+
+.section {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.heading {
+  color: var(--color-ink-muted);
+  font-size: 1.25rem;
+}
+
+.phoneGrid {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 28rem;
+}
+
+.projectorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 40rem), 1fr));
+  gap: var(--space-4);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.ranking {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 36rem;
+  margin: 0;
+  padding: 0;
+}
+
+.statusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-4);
+}
+
+.frame {
+  border: 0.15rem solid var(--color-night-line);
+  border-radius: var(--radius-l);
+  overflow: hidden;
+}
+
+/* Inside the catalog the status screens are previews, not full pages. */
+.frame > main {
+  min-height: 30rem;
+}

@@ -129,6 +129,7 @@ export function makeState(overrides: Partial<GameState> = {}): GameState {
     questionEndsAt: null,
     answers: {},
     questionOrigin: overrides.phase === 'GENERATING' ? null : 'ai',
+    kickedIds: [],
     ...overrides,
   };
 }
