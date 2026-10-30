@@ -5,6 +5,7 @@ import {
   clientPayloadSchemas,
   HostCreatedPayloadSchema,
   HostCreatePayloadSchema,
+  HostKickPayloadSchema,
   HostRejoinPayloadSchema,
   PlayerAnswerPayloadSchema,
   PlayerJoinedPayloadSchema,
@@ -21,7 +22,7 @@ const PLAYER_ID = '3f1c2a5e-8b4d-4e6f-9a1b-2c3d4e5f6a7b';
 describe('event names', () => {
   it('match the spec (section 5)', () => {
     expect(Object.values(ClientEvents).sort()).toEqual(
-      ['host:create', 'host:next', 'host:rejoin', 'host:start', 'player:answer', 'player:join'],
+      ['host:create', 'host:kick', 'host:next', 'host:rejoin', 'host:start', 'player:answer', 'player:join'],
     );
     expect(Object.values(ServerEvents).sort()).toEqual(
       ['error', 'game:end', 'host:created', 'leaderboard', 'player:joined', 'question:reveal', 'question:start', 'room:state'],
@@ -235,8 +236,31 @@ describe('room:state', () => {
   });
 });
 
+describe('host:kick (SPEC §3 Límites)', () => {
+  it('takes the room code and the nickname, both normalized like player:join', () => {
+    expect(HostKickPayloadSchema.parse({ roomCode: ' abc234 ', nickname: '  Ana   María ' })).toEqual({ roomCode: 'ABC234', nickname: 'Ana María' });
+  });
+
+  it('is validated by clientPayloadSchemas', () => {
+    expect(clientPayloadSchemas['host:kick']).toBe(HostKickPayloadSchema);
+  });
+
+  it.each([
+    ['an invalid nickname', { roomCode: 'ABC234', nickname: '' }],
+    ['an invalid room code', { roomCode: 'ABC', nickname: 'Ana' }],
+    ['a playerId instead of the nickname', { roomCode: 'ABC234', playerId: PLAYER_ID }],
+    ['extra keys', { roomCode: 'ABC234', nickname: 'Ana', playerId: PLAYER_ID }],
+  ])('rejects %s', (_label, payload) => {
+    expect(HostKickPayloadSchema.safeParse(payload).success).toBe(false);
+  });
+});
+
 describe('error codes', () => {
   it('SPEC §6: include TOPIC_REJECTED', () => {
     expect(ErrorPayloadSchema.safeParse({ code: 'TOPIC_REJECTED', message: 'Tema no permitido' }).success).toBe(true);
+  });
+
+  it('SPEC §5: include KICKED', () => {
+    expect(ErrorPayloadSchema.safeParse({ code: 'KICKED', message: 'El presentador te sacó de la sala.' }).success).toBe(true);
   });
 });

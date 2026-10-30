@@ -26,6 +26,7 @@ export const ClientEvents = {
   HostStart: 'host:start',
   HostNext: 'host:next',
   HostRejoin: 'host:rejoin',
+  HostKick: 'host:kick',
   PlayerJoin: 'player:join',
   PlayerAnswer: 'player:answer',
 } as const;
@@ -70,6 +71,12 @@ export const HostRejoinPayloadSchema = z.strictObject({
   hostToken: HostTokenSchema,
 });
 
+/** By nickname: unique in the room, while the playerId never leaves the player's device. */
+export const HostKickPayloadSchema = z.strictObject({
+  roomCode: RoomCodeSchema,
+  nickname: NicknameSchema,
+});
+
 export const PlayerJoinPayloadSchema = z.strictObject({
   roomCode: RoomCodeSchema,
   nickname: NicknameSchema,
@@ -88,6 +95,7 @@ export const clientPayloadSchemas = {
   [ClientEvents.HostStart]: HostStartPayloadSchema,
   [ClientEvents.HostNext]: HostNextPayloadSchema,
   [ClientEvents.HostRejoin]: HostRejoinPayloadSchema,
+  [ClientEvents.HostKick]: HostKickPayloadSchema,
   [ClientEvents.PlayerJoin]: PlayerJoinPayloadSchema,
   [ClientEvents.PlayerAnswer]: PlayerAnswerPayloadSchema,
 } as const satisfies Record<ClientEvent, z.ZodType>;
@@ -96,6 +104,7 @@ export type HostCreatePayload = z.infer<typeof HostCreatePayloadSchema>;
 export type HostStartPayload = z.infer<typeof HostStartPayloadSchema>;
 export type HostNextPayload = z.infer<typeof HostNextPayloadSchema>;
 export type HostRejoinPayload = z.infer<typeof HostRejoinPayloadSchema>;
+export type HostKickPayload = z.infer<typeof HostKickPayloadSchema>;
 export type PlayerJoinPayload = z.infer<typeof PlayerJoinPayloadSchema>;
 export type PlayerAnswerPayload = z.infer<typeof PlayerAnswerPayloadSchema>;
 
@@ -201,6 +210,7 @@ export const ErrorCodeSchema = z.enum([
   'NO_PLAYERS',
   'RATE_LIMITED',
   'TOPIC_REJECTED',
+  'KICKED',
   'INTERNAL',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
@@ -242,6 +252,7 @@ export interface ClientToServerEvents {
   [ClientEvents.HostStart]: (payload: z.input<typeof HostStartPayloadSchema>) => void;
   [ClientEvents.HostNext]: (payload: z.input<typeof HostNextPayloadSchema>) => void;
   [ClientEvents.HostRejoin]: (payload: z.input<typeof HostRejoinPayloadSchema>) => void;
+  [ClientEvents.HostKick]: (payload: z.input<typeof HostKickPayloadSchema>) => void;
   [ClientEvents.PlayerJoin]: (payload: z.input<typeof PlayerJoinPayloadSchema>) => void;
   [ClientEvents.PlayerAnswer]: (payload: z.input<typeof PlayerAnswerPayloadSchema>) => void;
 }

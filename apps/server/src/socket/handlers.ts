@@ -39,6 +39,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   NO_PLAYERS: 'Se necesita al menos un jugador conectado.',
   RATE_LIMITED: 'Demasiados intentos. Espera un momento y vuelve a probar.',
   TOPIC_REJECTED: 'Ese tema no está permitido. Prueba con otro.',
+  KICKED: 'El presentador te sacó de la sala.',
   INTERNAL: 'Ocurrió un error inesperado.',
 };
 
