@@ -24,6 +24,8 @@ export const QUESTION: QuestionStartPayload = {
 };
 
 export const REVEAL: QuestionRevealPayload = {
+  prompt: QUESTION.prompt,
+  options: QUESTION.options,
   correctIndex: 0,
   distribution: [3, 1, 0, 1],
   explanation: 'El Irazú mide 3432 m.',

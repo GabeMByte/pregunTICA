@@ -99,6 +99,46 @@ describe('CLAUDE.md rule #2 / SPEC §3: toRoomState (public room view)', () => {
   });
 });
 
+describe('SPEC §5: answered counters in the host copy of the room state', () => {
+  const answered = (...ids: number[]) =>
+    Object.fromEntries(ids.map((n) => [playerId(n), { optionIndex: 0, elapsedMs: 100 }]));
+
+  it('counts the answers received and the answers expected during QUESTION', () => {
+    const payload = RoomStatePayloadSchema.parse(toHostRoomState(questionState('QUESTION', { answers: answered(1, 3) })));
+    expect(payload.answeredCount).toBe(2);
+    expect(payload.expectedAnswers).toBe(3);
+  });
+
+  it('does not expect an answer from a late joiner', () => {
+    const players = [makePlayer(1), makePlayer(2), makePlayer(3, { eligibleFrom: 2 })];
+    expect(toHostRoomState(questionState('QUESTION', { players })).expectedAnswers).toBe(2);
+  });
+
+  it('does not expect an answer from a disconnected player who has not answered', () => {
+    const players = [makePlayer(1), makePlayer(2, { connected: false })];
+    expect(toHostRoomState(questionState('QUESTION', { players })).expectedAnswers).toBe(1);
+  });
+
+  it('keeps counting a player who answered and then disconnected', () => {
+    const players = [makePlayer(1), makePlayer(2, { connected: false })];
+    const payload = toHostRoomState(questionState('QUESTION', { players, answers: answered(2) }));
+    expect(payload.answeredCount).toBe(1);
+    expect(payload.expectedAnswers).toBe(2);
+  });
+
+  it.each(ALL_PHASES.filter((p) => p !== 'QUESTION'))('leaves the counters out in %s', (phase) => {
+    const payload = toHostRoomState(realisticState(phase));
+    expect(payload).not.toHaveProperty('answeredCount');
+    expect(payload).not.toHaveProperty('expectedAnswers');
+  });
+
+  it('the players copy never gets the counters', () => {
+    const payload = toRoomState(questionState('QUESTION', { answers: answered(1) }));
+    expect(payload).not.toHaveProperty('answeredCount');
+    expect(payload).not.toHaveProperty('expectedAnswers');
+  });
+});
+
 describe('CLAUDE.md rule #2: toQuestionStart never includes the answer', () => {
   it.each(ALL_PHASES.filter((p) => p !== 'QUESTION'))('returns null in %s', (phase) => {
     expect(toQuestionStart(realisticState(phase))).toBeNull();
@@ -144,6 +184,8 @@ describe('SPEC §3 REVEAL: toReveal (correct answer, distribution, explanation)'
     });
     const payload = QuestionRevealPayloadSchema.parse(toReveal(state));
     expect(payload).toEqual({
+      prompt: at(questions, 1).prompt,
+      options: at(questions, 1).options,
       correctIndex: 1,
       distribution: [0, 2, 0, 1],
       explanation: at(questions, 1).explanation,
