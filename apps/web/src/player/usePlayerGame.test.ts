@@ -91,6 +91,73 @@ describe('usePlayerGame', () => {
     expect(result.current.state.selectedOption).toBe(1);
   });
 
+  it('two taps before a re-render still send one answer', () => {
+    savePlayerSession(SESSION);
+    const { result } = setup();
+    act(() => {
+      fake.receive(ServerEvents.QuestionStart, QUESTION);
+    });
+    act(() => {
+      result.current.answer(1);
+      result.current.answer(2);
+    });
+    expect(fake.emitted.filter((e) => e.event === 'player:answer')).toHaveLength(1);
+    expect(result.current.state.selectedOption).toBe(1);
+  });
+
+  it('answers again on the next question', () => {
+    savePlayerSession(SESSION);
+    const { result } = setup();
+    act(() => {
+      fake.receive(ServerEvents.QuestionStart, QUESTION);
+    });
+    act(() => {
+      result.current.answer(1);
+    });
+    act(() => {
+      fake.receive(ServerEvents.QuestionStart, { ...QUESTION, index: 1 });
+    });
+    act(() => {
+      result.current.answer(2);
+    });
+    expect(fake.emitted.filter((e) => e.event === 'player:answer')).toHaveLength(2);
+  });
+
+  it('a stored session from the same room as the URL rejoins', () => {
+    savePlayerSession(SESSION);
+    renderHook(() => usePlayerGame({ createSocket, newPlayerId, urlRoomCode: ROOM_CODE }));
+    expect(fake.emitted).toContainEqual({ event: 'player:join', payload: SESSION });
+  });
+
+  it('a stored session from another room is ignored when the URL names a room', () => {
+    savePlayerSession(SESSION);
+    const { result } = renderHook(() => usePlayerGame({ createSocket, newPlayerId, urlRoomCode: 'XYZ789' }));
+    expect(result.current.state.session).toBeNull();
+    expect(fake.emitted.some((e) => e.event === 'player:join')).toBe(false);
+  });
+
+  it('retry connects again after the server closed the socket', () => {
+    const { result } = setup();
+    act(() => {
+      fake.disconnect();
+    });
+    expect(fake.connected).toBe(false);
+    act(() => {
+      result.current.retry();
+    });
+    expect(fake.connected).toBe(true);
+  });
+
+  it('join marks the attempt as pending', () => {
+    const { result } = setup();
+    act(() => {
+      result.current.join(ROOM_CODE, 'Tica');
+    });
+    expect(result.current.state.joining).toBe(true);
+    joined();
+    expect(result.current.state.joining).toBe(false);
+  });
+
   it('cannot answer after the reveal', () => {
     savePlayerSession(SESSION);
     const { result } = setup();

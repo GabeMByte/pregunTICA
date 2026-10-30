@@ -12,6 +12,7 @@
   "include": [
     "tests",
     "screenshots",
+    "player-screenshots",
     "*.config.ts"
   ]
 }

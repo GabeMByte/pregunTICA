@@ -1,0 +1,44 @@
+/* Fills the phone: the options take every pixel the header, the prompt and the status leave free. */
+.screen {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--space-3);
+  min-height: 100dvh;
+  padding: var(--space-4) var(--space-3) max(var(--space-3), env(safe-area-inset-bottom));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.progress {
+  color: var(--color-ink-muted);
+  font-weight: 700;
+}
+
+.prompt {
+  font-size: 1.5rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.options {
+  display: grid;
+  grid-auto-rows: 1fr;
+  gap: var(--space-3);
+}
+
+.status {
+  color: var(--color-ink-muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.status[data-answered='true'] {
+  color: var(--color-correct);
+  font-size: 1.25rem;
+}
