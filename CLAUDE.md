@@ -13,6 +13,7 @@ pnpm lint               # ESLint
 pnpm typecheck          # tsc --noEmit en todos los paquetes
 pnpm build              # build de producción
 pnpm eval:questions     # compara modelos con la API real (solo el usuario, cuesta dinero)
+pnpm smoke --topic "…" [--language en]  # sala real contra pnpm dev (solo el usuario, usa la API)
 ```
 
 ## Arquitectura
@@ -32,7 +33,7 @@ pnpm eval:questions     # compara modelos con la API real (solo el usuario, cues
 4. **TDD en `engine/` y `ai/`**: escribe el test, confirma que falla, luego implementa.
 5. Los eventos y tipos nuevos se definen primero en `packages/shared`.
 6. Nunca commitear `.env` ni claves. La clave va en `ANTHROPIC_API_KEY`.
-7. **Nunca llamar a la API real de Anthropic**: los tests usan un cliente falso y `pnpm eval:questions` lo corre solo el usuario (está bloqueado en `.claude/settings.json`). Ojo: `pnpm dev`, `start` y los scripts cargan el `.env` de la raíz con `--env-file-if-exists`, así que quitar la variable del entorno no basta.
+7. **Nunca llamar a la API real de Anthropic**: los tests usan un cliente falso y `pnpm eval:questions` y `pnpm smoke` los corre solo el usuario (está bloqueado en `.claude/settings.json`). Ojo: `pnpm dev`, `start` y los scripts cargan el `.env` de la raíz con `--env-file-if-exists`, así que quitar la variable del entorno no basta.
 
 ## Convenciones
 

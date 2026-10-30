@@ -18,7 +18,13 @@
       "Bash(*eval:questions*)",
       "Bash(*eval-questions*)",
       "PowerShell(*eval:questions*)",
-      "PowerShell(*eval-questions*)"
+      "PowerShell(*eval-questions*)",
+      "Bash(*pnpm smoke*)",
+      "Bash(*run smoke*)",
+      "Bash(*scripts/smoke*)",
+      "PowerShell(*pnpm smoke*)",
+      "PowerShell(*run smoke*)",
+      "PowerShell(*scripts/smoke*)"
     ]
   },
   "hooks": {
