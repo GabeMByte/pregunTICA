@@ -6,7 +6,10 @@ import { subscribe } from './socket.js';
 const ROOM_STATE = {
   roomCode: 'ABC234',
   phase: 'LOBBY',
+  topic: 'Volcanes de Costa Rica',
   players: [{ nickname: 'Tica', score: 0, connected: true }],
+  questionIndex: null,
+  totalQuestions: 5,
 };
 
 describe('CLAUDE.md rule 3: every server payload is validated with Zod', () => {
@@ -64,9 +67,11 @@ describe('CLAUDE.md rule 3: every server payload is validated with Zod', () => {
     const fake = new FakeSocket();
     const handler = vi.fn();
     const unsubscribe = subscribe(fake.asGameSocket(), ServerEvents.RoomState, handler, vi.fn());
+    fake.receive(ServerEvents.RoomState, ROOM_STATE);
+    expect(handler).toHaveBeenCalledOnce();
     unsubscribe();
     fake.receive(ServerEvents.RoomState, ROOM_STATE);
-    expect(handler).not.toHaveBeenCalled();
+    expect(handler).toHaveBeenCalledOnce();
     expect(fake.listenerCount(ServerEvents.RoomState)).toBe(0);
   });
 });
