@@ -620,3 +620,84 @@ describe('SPEC §6 Tema rechazado', () => {
     for (const state of player.received('room:state')) expect(state).not.toHaveProperty('questionOrigin');
   });
 });
+
+describe('SPEC §3 Límites: host:kick', () => {
+  it('the kicked player gets KICKED, leaves the room and stops receiving its events; the others stay', async () => {
+    const h = await startServer();
+    const { host, roomCode } = await createRoom(h);
+    const ana = await join(h, roomCode, 'Ana');
+    const beto = await join(h, roomCode, 'Beto');
+
+    const hostSince = host.mark();
+    host.socket.emit('host:kick', { roomCode, nickname: ' ana ' });
+    expect(await errorCode(ana.player, 0)).toBe('KICKED');
+    const state = RoomStatePayloadSchema.parse(
+      await host.next('room:state', hostSince, (p) => RoomStatePayloadSchema.parse(p).players.length === 1),
+    );
+    expect(state.players.map((p) => p.nickname)).toEqual(['Beto']);
+    expect(h.registry.get(roomCode)?.players.map((p) => p.id)).toEqual([beto.playerId]);
+
+    const anaSince = ana.player.mark();
+    host.socket.emit('host:start', { roomCode });
+    await beto.player.next('question:start');
+    expect(ana.player.received('question:start', anaSince)).toEqual([]);
+    ana.player.socket.emit('player:answer', { roomCode, questionIndex: 0, optionIndex: RIGHT });
+    expect(await errorCode(ana.player, anaSince)).toBe('PLAYER_NOT_FOUND');
+  });
+
+  it('cannot come back with the same playerId, but can as a new player with a new one', async () => {
+    const h = await startServer();
+    const { host, roomCode } = await createRoom(h);
+    const ana = await join(h, roomCode, 'Ana');
+    host.socket.emit('host:kick', { roomCode, nickname: 'Ana' });
+    expect(await errorCode(ana.player, 0)).toBe('KICKED');
+
+    const back = await client(h);
+    back.socket.emit('player:join', { roomCode, nickname: 'Ana', playerId: ana.playerId });
+    expect(await errorCode(back, 0)).toBe('KICKED');
+
+    const fresh = await join(h, roomCode, 'Ana');
+    expect(fresh.joined.nickname).toBe('Ana');
+    expect(fresh.playerId).not.toBe(ana.playerId);
+  });
+
+  it('only the host can kick: a player gets NOT_HOST and nobody leaves', async () => {
+    const h = await startServer();
+    const { roomCode } = await createRoom(h);
+    const ana = await join(h, roomCode, 'Ana');
+    await join(h, roomCode, 'Beto');
+    const since = ana.player.mark();
+    ana.player.socket.emit('host:kick', { roomCode, nickname: 'Beto' });
+    expect(await errorCode(ana.player, since)).toBe('NOT_HOST');
+    expect(h.registry.get(roomCode)?.players).toHaveLength(2);
+  });
+
+  it('an unknown nickname → PLAYER_NOT_FOUND; a bad payload → INVALID_PAYLOAD', async () => {
+    const h = await startServer();
+    const { host, roomCode } = await createRoom(h);
+    await join(h, roomCode, 'Ana');
+    let since = host.mark();
+    host.socket.emit('host:kick', { roomCode, nickname: 'Nadie' });
+    expect(await errorCode(host, since)).toBe('PLAYER_NOT_FOUND');
+    since = host.mark();
+    host.socket.emit('host:kick', { roomCode, nickname: '' });
+    expect(await errorCode(host, since)).toBe('INVALID_PAYLOAD');
+    expect(h.registry.get(roomCode)?.players).toHaveLength(1);
+  });
+
+  it('kicking the only player still to answer reveals the question', async () => {
+    const h = await startServer();
+    const { host, roomCode } = await createRoom(h);
+    const ana = await join(h, roomCode, 'Ana');
+    await join(h, roomCode, 'Beto');
+    host.socket.emit('host:start', { roomCode });
+    await ana.player.next('question:start');
+    ana.player.socket.emit('player:answer', { roomCode, questionIndex: 0, optionIndex: RIGHT });
+    await vi.waitFor(() => {
+      expect(h.registry.get(roomCode)?.answers).toHaveProperty(ana.playerId);
+    });
+    host.socket.emit('host:kick', { roomCode, nickname: 'Beto' });
+    await ana.player.next('question:reveal');
+    expect(phaseOf(h, roomCode)).toBe('REVEAL');
+  });
+});
