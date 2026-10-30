@@ -183,4 +183,6 @@ Hallazgos de la revisión de seguridad del Día 4 que no se corrigen en el MVP:
 - **Los temas rechazados no se cachean**: repetirlos vuelve a llamar a la API, pero cada intento cuenta para el límite de salas por IP y para el tope global.
 - **Una sala cuyo respaldo también falla queda en GENERATING** hasta el barrido: requiere que falle el banco local, que se valida al arrancar.
 
+Decisiones del Día 5 que aceptan un riesgo:
+
 - **Un jugador expulsado puede volver con otro `playerId`** (por ejemplo, borrando el almacenamiento del navegador): entra como jugador nuevo y el host puede volver a expulsarlo. Bloquear por IP afectaría a toda un aula que comparte el router.
