@@ -37,6 +37,8 @@ export interface GameState {
   answers: Record<string, Answer>;
   /** Where the questions came from; null while GENERATING. */
   questionOrigin: QuestionOrigin | null;
+  /** Ids of players the host kicked out, in kick order: they cannot join again with the same id. */
+  kickedIds: string[];
 }
 
 export type GameAction =
@@ -46,7 +48,8 @@ export type GameAction =
   | { type: 'start' }
   | { type: 'answer'; playerId: string; questionIndex: number; optionIndex: number }
   | { type: 'timeUp' }
-  | { type: 'next' };
+  | { type: 'next' }
+  | { type: 'kick'; nickname: string };
 
 export type EngineResult = { ok: true; state: GameState } | { ok: false; error: ErrorCode };
 
