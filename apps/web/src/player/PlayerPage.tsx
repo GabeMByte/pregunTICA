@@ -5,6 +5,7 @@ import type { GameSocket } from '../net/socket.js';
 import { playerScreen } from './player-view.js';
 import { JoinScreen } from './screens/JoinScreen.js';
 import { LobbyScreen } from './screens/LobbyScreen.js';
+import { QuestionScreen } from './screens/QuestionScreen.js';
 import { usePlayerGame } from './usePlayerGame.js';
 
 export interface PlayerPageProps {
@@ -18,8 +19,8 @@ export function PlayerPage({ createSocket }: PlayerPageProps) {
   // The code comes from the URL (the QR): validated like any other input.
   const parsedCode = RoomCodeSchema.safeParse(code ?? '');
   const urlRoomCode = parsedCode.success ? parsedCode.data : undefined;
-  const { state, join, dismissError, retry } = usePlayerGame({ createSocket, urlRoomCode });
-  const { session, room, error } = state;
+  const { state, join, answer, dismissError, retry } = usePlayerGame({ createSocket, urlRoomCode });
+  const { session, room, question, error } = state;
   const screen = playerScreen(state);
 
   if (screen === 'join') {
@@ -45,6 +46,9 @@ export function PlayerPage({ createSocket }: PlayerPageProps) {
 
   if (screen === 'lobby' && session !== null && room !== null) {
     return <LobbyScreen nickname={session.nickname} topic={room.topic} playerCount={room.players.length} waiting={state.waitingForNextQuestion} />;
+  }
+  if (screen === 'question' && question !== null) {
+    return <QuestionScreen key={question.index} question={question} selectedOption={state.selectedOption} onAnswer={answer} />;
   }
   // Between room:state and the data of the new phase.
   return <StatusScreen kind="connecting" title="Prepárate…" />;

@@ -2,7 +2,7 @@ import { ServerEvents, type ErrorCode } from '@preguntica/shared';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PLAYER_ID, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
+import { PLAYER_ID, QUESTION, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
 import { FakeSocket } from '../net/fake-socket.js';
 import { PLAYER_KEY, savePlayerSession } from '../net/storage.js';
 import { PlayerPage } from './PlayerPage.js';
@@ -139,6 +139,72 @@ describe('lobby', () => {
     receive(ServerEvents.RoomState, { ...ROOM_STATE, phase: 'QUESTION', questionIndex: 1 });
     expect(screen.getByRole('heading', { name: 'Estás dentro' })).toBeDefined();
     expect(screen.getByRole('status').textContent).toBe('Espera a la siguiente pregunta');
+  });
+});
+
+describe('question', () => {
+  function inQuestion(index = 0) {
+    savePlayerSession(SESSION);
+    renderAt();
+    receive(ServerEvents.PlayerJoined, { playerId: PLAYER_ID, nickname: 'Tica', waitingForNextQuestion: false });
+    showQuestion(index);
+  }
+
+  function showQuestion(index: number) {
+    receive(ServerEvents.RoomState, { ...ROOM_STATE, phase: 'QUESTION', questionIndex: index });
+    receive(ServerEvents.QuestionStart, { ...QUESTION, index, endsAt: Date.now() + 15_000 });
+  }
+
+  const optionButtons = () => screen.getAllByRole<HTMLButtonElement>('button');
+  const option = (letter: string) => screen.getByRole<HTMLButtonElement>('button', { name: new RegExp(`^Opción ${letter}:`) });
+  const answers = () => fake.emitted.filter((e) => e.event === 'player:answer');
+
+  it('shows four options with letter and text, and the timer', () => {
+    inQuestion();
+    expect(screen.getByRole('heading', { name: QUESTION.prompt })).toBeDefined();
+    expect(optionButtons().map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Opción A: Irazú',
+      'Opción B: Poás',
+      'Opción C: Arenal',
+      'Opción D: Turrialba',
+    ]);
+    expect(screen.getByRole('timer').getAttribute('aria-label')).toBe('Quedan 15 segundos');
+    expect(screen.getByText('Pregunta 1 de 5')).toBeDefined();
+  });
+
+  it('one tap sends once, locks the options and confirms', () => {
+    inQuestion();
+    fireEvent.click(option('B'));
+    fireEvent.click(option('B'));
+    fireEvent.click(option('A'));
+    expect(answers()).toEqual([{ event: 'player:answer', payload: { roomCode: ROOM_CODE, questionIndex: 0, optionIndex: 1 } }]);
+    expect(screen.getByRole('status').textContent).toBe('Respuesta enviada');
+    expect(optionButtons().every((b) => b.disabled)).toBe(true);
+    expect(option('B').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('the next question starts clean, with a fresh timer', () => {
+    inQuestion();
+    fireEvent.click(option('A'));
+    const oldTimer = screen.getByRole('timer');
+    showQuestion(1);
+    expect(screen.getByRole('status').textContent).toBe('Elige una respuesta');
+    expect(optionButtons().every((b) => !b.disabled)).toBe(true);
+    expect(screen.getByRole('timer')).not.toBe(oldTimer);
+  });
+
+  it('a reconnection in the same question keeps the answer', () => {
+    inQuestion();
+    fireEvent.click(option('C'));
+    showQuestion(0);
+    expect(screen.getByRole('status').textContent).toBe('Respuesta enviada');
+    expect(answers()).toHaveLength(1);
+  });
+
+  it('a late joiner never sees the question in progress', () => {
+    joinedLobby(true);
+    receive(ServerEvents.RoomState, { ...ROOM_STATE, phase: 'QUESTION', questionIndex: 0 });
+    expect(screen.queryByRole('timer')).toBeNull();
   });
 });
 
