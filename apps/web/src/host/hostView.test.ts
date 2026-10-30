@@ -1,8 +1,8 @@
-import type { Phase } from '@preguntica/shared';
+import { QUESTION_TIME_MS, type Phase } from '@preguntica/shared';
 import { describe, expect, it } from 'vitest';
 import { HOST_TOKEN, QUESTION, REVEAL, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
 import { initialHostState, type HostState } from './hostReducer.js';
-import { canStart, selectHostScreen, showsFallbackNotice } from './hostView.js';
+import { canStart, joinUrl, localEndsAt, rankShifts, selectHostScreen, showsFallbackNotice } from './hostView.js';
 
 const SESSION = { roomCode: ROOM_CODE, hostToken: HOST_TOKEN };
 const TOP = [{ nickname: 'Tica', score: 900, delta: 900 }];
@@ -68,6 +68,53 @@ describe('canStart', () => {
   it('a room with only disconnected players cannot start', () => {
     const room = { ...ROOM_STATE, players: [{ nickname: 'Tica', score: 0, connected: false }] };
     expect(canStart(inRoom('LOBBY', { room }))).toBe(false);
+  });
+});
+
+describe('localEndsAt', () => {
+  const NOW = 1_000_000;
+
+  it('keeps the server time when the clocks agree, as after a rejoin mid-question', () => {
+    expect(localEndsAt(NOW + 12_000, NOW)).toBe(NOW + 12_000);
+  });
+
+  it('never gives a question more time than its limit, with a local clock running behind', () => {
+    expect(localEndsAt(NOW + 3_600_000, NOW)).toBe(NOW + QUESTION_TIME_MS);
+  });
+});
+
+describe('rankShifts', () => {
+  it('is all zeros when nobody moved', () => {
+    expect(
+      rankShifts([
+        { nickname: 'Ana', score: 900, delta: 100 },
+        { nickname: 'Beto', score: 500, delta: 0 },
+      ]),
+    ).toEqual([0, 0]);
+  });
+
+  it('says how many places each entry climbed or fell', () => {
+    // Before this question: Beto 800, Cata 600, Ana 100.
+    const entries = [
+      { nickname: 'Ana', score: 1100, delta: 1000 },
+      { nickname: 'Beto', score: 800, delta: 0 },
+      { nickname: 'Cata', score: 700, delta: 100 },
+    ];
+    expect(rankShifts(entries)).toEqual([2, -1, -1]);
+  });
+
+  it('keeps the current order on a tie, so nobody moves for no reason', () => {
+    const entries = [
+      { nickname: 'Ana', score: 500, delta: 0 },
+      { nickname: 'Beto', score: 500, delta: 0 },
+    ];
+    expect(rankShifts(entries)).toEqual([0, 0]);
+  });
+});
+
+describe('joinUrl', () => {
+  it('points to the player route with the code in it (SPEC §4)', () => {
+    expect(joinUrl('https://preguntica.example', ROOM_CODE)).toBe(`https://preguntica.example/play/${ROOM_CODE}`);
   });
 });
 

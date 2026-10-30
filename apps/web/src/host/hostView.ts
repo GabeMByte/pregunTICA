@@ -1,11 +1,24 @@
-import type {
-  LeaderboardEntry,
-  PodiumEntry,
-  QuestionRevealPayload,
-  QuestionStartPayload,
-  RoomStatePayload,
+import {
+  QUESTION_TIME_MS,
+  type Difficulty,
+  type Language,
+  type LeaderboardEntry,
+  type PodiumEntry,
+  type QuestionRevealPayload,
+  type QuestionStartPayload,
+  type RoomStatePayload,
 } from '@preguntica/shared';
 import type { HostState } from './hostReducer.js';
+
+/** What the form holds; kept by the page so it comes back filled in after a rejected topic. */
+export interface FormDraft {
+  topic: string;
+  count: number;
+  difficulty: Difficulty;
+  language: Language;
+}
+
+export const EMPTY_DRAFT: FormDraft = { topic: '', count: 5, difficulty: 'medium', language: 'es' };
 
 export type HostScreen =
   | { name: 'form' }
@@ -50,4 +63,26 @@ export function canStart({ room, connection }: Pick<HostState, 'room' | 'connect
 /** Only before the game starts: players see the projector too, and the fallback bank is public (SPEC §5). */
 export function showsFallbackNotice(room: RoomStatePayload | null): boolean {
   return room !== null && (room.phase === 'GENERATING' || room.phase === 'LOBBY') && room.questionOrigin === 'fallback';
+}
+
+/**
+ * Timer expects the local clock and endsAt comes from the server's. A question never lasts longer
+ * than its limit, which corrects a local clock running behind; one running ahead only shows less time.
+ */
+export function localEndsAt(serverEndsAt: number, now: number): number {
+  return Math.min(serverEndsAt, now + QUESTION_TIME_MS);
+}
+
+/**
+ * How many places each entry climbed with the last question (negative: it fell). The previous order
+ * comes from score - delta, so it only knows about the players who are in the top now.
+ */
+export function rankShifts(entries: readonly LeaderboardEntry[]): number[] {
+  const before = entries.map((entry, index) => ({ index, previous: entry.score - entry.delta }));
+  const order = before.sort((a, b) => b.previous - a.previous).map((entry) => entry.index);
+  return entries.map((_, index) => order.indexOf(index) - index);
+}
+
+export function joinUrl(origin: string, roomCode: string): string {
+  return `${origin}/play/${roomCode}`;
 }
