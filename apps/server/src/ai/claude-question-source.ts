@@ -67,7 +67,7 @@ export class ClaudeQuestionSource implements QuestionSource {
     const startedAt = clock();
     const base = {
       model,
-      max_tokens: MAX_TOKENS,
+      max_tokens: maxTokensFor(request.count),
       system: buildSystemPrompt(),
       tools: buildTools(),
       tool_choice: { type: 'auto', disable_parallel_tool_use: true },
@@ -94,7 +94,17 @@ export class ClaudeQuestionSource implements QuestionSource {
   }
 }
 
-const MAX_TOKENS = 16000;
+/**
+ * Security review B1: output budget (thinking included) scaled with the number of questions instead
+ * of a flat 16000: 2000 + 400 per question, capped at 8000 (5 → 4000, 15 → 8000).
+ */
+export function maxTokensFor(count: number): number {
+  return Math.min(MAX_TOKENS, BASE_TOKENS + TOKENS_PER_QUESTION * count);
+}
+
+const MAX_TOKENS = 8000;
+const BASE_TOKENS = 2000;
+const TOKENS_PER_QUESTION = 400;
 /** The original call plus one retry with the validation errors. */
 const MAX_ATTEMPTS = 2;
 const NO_TOOL_CALL = `No tool was called. Call ${SUBMIT_TOOL} with the questions, or ${REJECT_TOOL} if the topic is not allowed.`;

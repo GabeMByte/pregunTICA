@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { Question } from '@preguntica/shared';
 import { at, makeQuestions } from '../engine/test-helpers.js';
 import { TopicRejectedError, type QuestionRequest } from '../rooms/question-source.js';
-import { ClaudeQuestionSource, GenerationFailedError, type ClaudeSourceOptions } from './claude-question-source.js';
+import { ClaudeQuestionSource, GenerationFailedError, maxTokensFor, type ClaudeSourceOptions } from './claude-question-source.js';
 import { buildSystemPrompt, buildTools, buildUserMessage } from './prompt.js';
 import { shuffleQuestions } from './shuffle.js';
 import { contentText, correctText, fakeCreateMessage, fakeMessage, rejectMessage, submitMessage, textBlock, toolUse } from './test-fakes.js';
@@ -51,7 +51,8 @@ describe('SPEC §6 Claude request (tool use, auto tool choice)', () => {
     await source.getQuestions(REQUEST);
     const { params } = call(calls, 0);
     expect(params.model).toBe('claude-test-model');
-    expect(params.max_tokens).toBe(16000);
+    // Security review B1: scaled with the count (5 questions → 4000), no longer a flat 16000.
+    expect(params.max_tokens).toBe(4000);
     expect(params.system).toBe(buildSystemPrompt());
     expect(params.messages).toEqual([{ role: 'user', content: buildUserMessage(REQUEST) }]);
     expect(params.tools).toEqual(buildTools());
@@ -77,6 +78,37 @@ describe('SPEC §6 Claude request (tool use, auto tool choice)', () => {
     const { source, calls } = setup([submitMessage(QUESTIONS)]);
     await source.getQuestions({ ...REQUEST, signal: controller.signal });
     expect(call(calls, 0).options.signal).toBe(controller.signal);
+  });
+});
+
+describe('security review B1: max_tokens scaled with the number of questions (maxTokensFor)', () => {
+  it.each([
+    [1, 2400],
+    [5, 4000],
+    [10, 6000],
+    [14, 7600],
+    [15, 8000],
+    [20, 8000],
+  ])('maxTokensFor(%i) = %i (2000 + 400 per question, capped at 8000)', (count, expected) => {
+    expect(maxTokensFor(count)).toBe(expected);
+  });
+
+  it('is min(8000, 2000 + 400 * count) for every count from 1 to 30', () => {
+    for (let count = 1; count <= 30; count++) expect(maxTokensFor(count)).toBe(Math.min(8000, 2000 + 400 * count));
+  });
+
+  it('the request uses maxTokensFor(request.count) on both attempts', async () => {
+    const { source, calls } = setup([submitMessage(INVALID_QUESTIONS), submitMessage(QUESTIONS)]);
+    await source.getQuestions(REQUEST);
+    expect(calls).toHaveLength(2);
+    expect(call(calls, 0).params.max_tokens).toBe(4000);
+    expect(call(calls, 1).params.max_tokens).toBe(4000);
+  });
+
+  it('15 questions → max_tokens 8000 (the cap)', async () => {
+    const { source, calls } = setup([submitMessage(makeQuestions(15))]);
+    await expect(source.getQuestions({ ...REQUEST, count: 15 })).resolves.toMatchObject({ origin: 'ai' });
+    expect(call(calls, 0).params.max_tokens).toBe(8000);
   });
 });
 
