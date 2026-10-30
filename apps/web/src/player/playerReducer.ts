@@ -8,15 +8,20 @@ export interface PlayerState extends BaseGameState {
   waitingForNextQuestion: boolean;
   /** The option this player picked in the current question. */
   selectedOption: number | null;
+  /** A join was sent and the server has not answered yet. */
+  joining: boolean;
+  /** game:end ends the session, but the final screen still needs to find this player. */
+  finalNickname: string | null;
 }
 
 export type PlayerAction =
   | BaseAction
+  | { type: 'joining' }
   | { type: 'player:joined'; payload: PlayerJoinedPayload; roomCode: string }
   | { type: 'answer'; optionIndex: number };
 
 export function initialPlayerState(session: PlayerSession | null): PlayerState {
-  return { ...initialBaseState, session, waitingForNextQuestion: false, selectedOption: null };
+  return { ...initialBaseState, session, waitingForNextQuestion: false, selectedOption: null, joining: false, finalNickname: null };
 }
 
 /** One answer per question, and only while it is open (SPEC §3). */
@@ -26,9 +31,11 @@ export function canAnswer(state: PlayerState): boolean {
 
 export function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
   switch (action.type) {
+    case 'joining':
+      return { ...state, joining: true, error: null };
     case 'player:joined': {
       const { playerId, nickname, waitingForNextQuestion } = action.payload;
-      return { ...state, session: { roomCode: action.roomCode, playerId, nickname }, waitingForNextQuestion, error: null };
+      return { ...state, session: { roomCode: action.roomCode, playerId, nickname }, waitingForNextQuestion, joining: false, error: null };
     }
     case 'answer':
       return canAnswer(state) ? { ...state, selectedOption: action.optionIndex } : state;
@@ -37,12 +44,20 @@ export function playerReducer(state: PlayerState, action: PlayerAction): PlayerS
 
   const next = baseReducer(state, action);
   switch (action.type) {
-    case 'question:start':
-      return { ...next, selectedOption: null, waitingForNextQuestion: false };
-    case 'error':
-      return SESSION_ENDING_ERRORS.includes(action.payload.code) ? { ...next, session: null } : next;
+    case 'connection':
+      return action.status === 'disconnected' ? { ...next, joining: false } : next;
+    case 'question:start': {
+      // A reconnection snapshot repeats the current question: the answer already given still stands.
+      const sameQuestion = state.question?.index === action.payload.index;
+      return { ...next, selectedOption: sameQuestion ? state.selectedOption : null, waitingForNextQuestion: false };
+    }
+    case 'error': {
+      const failed = { ...next, joining: false };
+      if (!SESSION_ENDING_ERRORS.includes(action.payload.code)) return failed;
+      return { ...failed, session: null, room: null, question: null, reveal: null, leaderboard: null, selectedOption: null };
+    }
     case 'game:end':
-      return { ...next, session: null };
+      return { ...next, session: null, finalNickname: state.session?.nickname ?? state.finalNickname };
     default:
       return next;
   }

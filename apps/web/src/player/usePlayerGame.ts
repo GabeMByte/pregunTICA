@@ -11,16 +11,20 @@ export interface UsePlayerGameOptions {
   getStorage?: () => Storage;
   /** SPEC §5: the playerId is generated on the device. */
   newPlayerId?: () => string;
+  /** The room the link points to: a stored session from another room must not hijack a new QR. */
+  urlRoomCode?: string;
 }
 
 const randomPlayerId = () => crypto.randomUUID();
 
 /** All of the player view's game state (CLAUDE.md: one hook per view). */
-export function usePlayerGame({ createSocket = createGameSocket, getStorage, newPlayerId = randomPlayerId }: UsePlayerGameOptions = {}) {
-  const [state, dispatch] = useReducer(playerReducer, null, () => initialPlayerState(readPlayerSession(getStorage)));
+export function usePlayerGame({ createSocket = createGameSocket, getStorage, newPlayerId = randomPlayerId, urlRoomCode }: UsePlayerGameOptions = {}) {
+  const [state, dispatch] = useReducer(playerReducer, null, () => initialPlayerState(resumableSession(urlRoomCode, getStorage)));
   const socketRef = useRef<GameSocket | null>(null);
   /** The room of the last join sent; player:joined does not repeat it. */
   const joiningRoomRef = useRef<string | null>(null);
+  /** Guards the emit itself: two taps can land before the re-render that disables the buttons. */
+  const answeredRef = useRef<number | null>(null);
 
   useEffect(() => {
     const socket = createSocket();
@@ -29,7 +33,7 @@ export function usePlayerGame({ createSocket = createGameSocket, getStorage, new
     const onConnect = () => {
       dispatch({ type: 'connection', status: 'connected' });
       // A reload or a dropped connection: join again as the same player.
-      const session = readPlayerSession(getStorage);
+      const session = resumableSession(urlRoomCode, getStorage);
       if (session !== null) {
         joiningRoomRef.current = session.roomCode;
         socket.emit(ClientEvents.PlayerJoin, session);
@@ -78,7 +82,7 @@ export function usePlayerGame({ createSocket = createGameSocket, getStorage, new
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [createSocket, getStorage]);
+  }, [createSocket, getStorage, urlRoomCode]);
 
   const join = useCallback(
     (roomCode: string, nickname: string) => {
@@ -86,6 +90,7 @@ export function usePlayerGame({ createSocket = createGameSocket, getStorage, new
       const stored = readPlayerSession(getStorage);
       const playerId = stored?.roomCode === roomCode ? stored.playerId : newPlayerId();
       joiningRoomRef.current = roomCode;
+      dispatch({ type: 'joining' });
       socketRef.current?.emit(ClientEvents.PlayerJoin, { roomCode, nickname, playerId });
     },
     [getStorage, newPlayerId],
@@ -98,6 +103,8 @@ export function usePlayerGame({ createSocket = createGameSocket, getStorage, new
   const answer = useCallback(
     (optionIndex: number) => {
       if (!answerable || roomCode === undefined || questionIndex === undefined) return;
+      if (answeredRef.current === questionIndex) return;
+      answeredRef.current = questionIndex;
       socketRef.current?.emit(ClientEvents.PlayerAnswer, { roomCode, questionIndex, optionIndex });
       dispatch({ type: 'answer', optionIndex });
     },
@@ -108,5 +115,15 @@ export function usePlayerGame({ createSocket = createGameSocket, getStorage, new
     dispatch({ type: 'error:dismiss' });
   }, []);
 
-  return { state, join, answer, dismissError };
+  /** Socket.io retries a dropped connection on its own, but not one the server closed. */
+  const retry = useCallback(() => {
+    socketRef.current?.connect();
+  }, []);
+
+  return { state, join, answer, dismissError, retry };
+}
+
+function resumableSession(urlRoomCode: string | undefined, getStorage: UsePlayerGameOptions['getStorage']) {
+  const session = readPlayerSession(getStorage);
+  return urlRoomCode === undefined || session?.roomCode === urlRoomCode ? session : null;
 }

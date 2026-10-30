@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLAYER_ID, QUESTION, REVEAL, ROOM_CODE } from '../game/fixtures.js';
+import { PLAYER_ID, QUESTION, REVEAL, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
 import { canAnswer, initialPlayerState, playerReducer, type PlayerState } from './playerReducer.js';
 
 const SESSION = { roomCode: ROOM_CODE, playerId: PLAYER_ID, nickname: 'Tica' };
@@ -41,10 +41,46 @@ describe('playerReducer', () => {
     expect(state.selectedOption).toBeNull();
   });
 
+  it('the same question again (a reconnection snapshot) keeps the answer', () => {
+    const answered = playerReducer(inQuestion(), { type: 'answer', optionIndex: 2 });
+    const state = playerReducer(answered, { type: 'question:start', payload: QUESTION });
+    expect(state.selectedOption).toBe(2);
+    expect(canAnswer(state)).toBe(false);
+  });
+
   it.each(['KICKED', 'ROOM_NOT_FOUND'] as const)('%s ends the session', (code) => {
     const state = playerReducer(initialPlayerState(SESSION), { type: 'error', payload: { code, message: 'x' } });
     expect(state.session).toBeNull();
     expect(state.error?.code).toBe(code);
+  });
+
+  it('a session-ending error drops the game it belonged to', () => {
+    const revealed = playerReducer(inQuestion(), { type: 'question:reveal', payload: REVEAL });
+    const inRoom = playerReducer(revealed, { type: 'room:state', payload: ROOM_STATE });
+    const state = playerReducer(inRoom, { type: 'error', payload: { code: 'ROOM_NOT_FOUND', message: 'x' } });
+    expect(state.room).toBeNull();
+    expect(state.question).toBeNull();
+    expect(state.reveal).toBeNull();
+    expect(state.leaderboard).toBeNull();
+    expect(state.selectedOption).toBeNull();
+  });
+
+  it('joining is pending until the server answers', () => {
+    const pending = playerReducer(initialPlayerState(null), { type: 'joining' });
+    expect(pending.joining).toBe(true);
+    const joined = playerReducer(pending, {
+      type: 'player:joined',
+      payload: { playerId: PLAYER_ID, nickname: 'Tica', waitingForNextQuestion: false },
+      roomCode: ROOM_CODE,
+    });
+    expect(joined.joining).toBe(false);
+    expect(playerReducer(pending, { type: 'error', payload: { code: 'ROOM_FULL', message: 'x' } }).joining).toBe(false);
+    expect(playerReducer(pending, { type: 'connection', status: 'disconnected' }).joining).toBe(false);
+  });
+
+  it('a new join clears the previous error', () => {
+    const failed = playerReducer(initialPlayerState(null), { type: 'error', payload: { code: 'ROOM_FULL', message: 'x' } });
+    expect(playerReducer(failed, { type: 'joining' }).error).toBeNull();
   });
 
   it('NICKNAME_TAKEN keeps the session', () => {
@@ -59,5 +95,6 @@ describe('playerReducer', () => {
     });
     expect(state.podium).toHaveLength(1);
     expect(state.session).toBeNull();
+    expect(state.finalNickname).toBe('Tica');
   });
 });
