@@ -54,6 +54,26 @@ describe('hostReducer', () => {
     expect(state.error?.code).toBe('ROOM_NOT_FOUND');
   });
 
+  it.each(['ROOM_NOT_FOUND', 'TOPIC_REJECTED'] as const)('%s leaves nothing of the room behind, so the form comes back', (code) => {
+    let state = hostReducer(initialHostState(SESSION), { type: 'connection', status: 'connected' });
+    state = hostReducer(state, { type: 'room:state', payload: ROOM_STATE });
+    state = hostReducer(state, { type: 'error', payload: { code, message: 'x' } });
+    expect(state).toMatchObject({ session: null, room: null, connection: 'connected', error: { code } });
+  });
+
+  it('create marks the request as in flight and clears a previous error', () => {
+    const errored = hostReducer(initialHostState(null), { type: 'error', payload: { code: 'RATE_LIMITED', message: 'x' } });
+    const state = hostReducer(errored, { type: 'create' });
+    expect(state.creating).toBe(true);
+    expect(state.error).toBeNull();
+  });
+
+  it('host:created or an error ends the request', () => {
+    const creating = hostReducer(initialHostState(null), { type: 'create' });
+    expect(hostReducer(creating, { type: 'host:created', payload: SESSION }).creating).toBe(false);
+    expect(hostReducer(creating, { type: 'error', payload: { code: 'RATE_LIMITED', message: 'x' } }).creating).toBe(false);
+  });
+
   it('other errors keep the session and can be dismissed', () => {
     let state = hostReducer(initialHostState(SESSION), { type: 'error', payload: { code: 'NO_PLAYERS', message: 'x' } });
     expect(state.session).toEqual(SESSION);

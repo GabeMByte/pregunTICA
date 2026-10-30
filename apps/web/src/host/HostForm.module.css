@@ -1,0 +1,147 @@
+.page {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-3);
+  min-height: 100dvh;
+  padding: var(--space-4) var(--space-3);
+}
+
+.brand {
+  border-radius: var(--radius-s);
+  text-decoration: none;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+  width: min(100%, 46rem);
+  padding: var(--space-4);
+  border: 0.15rem solid var(--color-night-line);
+  border-radius: var(--radius-l);
+  background: var(--color-night-raised);
+}
+
+.heading {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.title {
+  font-size: clamp(2.25rem, 4vw, 3.5rem);
+}
+
+.lead {
+  color: var(--color-ink-muted);
+  font-size: 1.375rem;
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.label {
+  padding: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.topic {
+  width: 100%;
+  min-height: 4rem;
+  padding: var(--space-2) var(--space-3);
+  border: 0.15rem solid var(--color-ink-muted);
+  border-radius: var(--radius-m);
+  background: var(--color-night);
+  font-size: 1.625rem;
+}
+
+.topic::placeholder {
+  color: var(--color-ink-muted);
+}
+
+.topic[aria-invalid='true'] {
+  border-color: var(--color-wrong);
+}
+
+.count {
+  font-family: var(--font-display);
+  font-size: 1.625rem;
+  font-weight: 800;
+}
+
+.range {
+  width: 100%;
+  height: 2.5rem;
+  accent-color: var(--color-option-c);
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.choice {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.segments {
+  display: flex;
+  border: 0.15rem solid var(--color-ink-muted);
+  border-radius: var(--radius-m);
+  overflow: hidden;
+}
+
+.segment {
+  position: relative;
+  flex: 1;
+  cursor: pointer;
+}
+
+.segment input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segment span {
+  display: grid;
+  place-items: center;
+  min-height: 3.5rem;
+  padding: var(--space-1) var(--space-2);
+  font-weight: 700;
+}
+
+.segment input:checked + span {
+  background: var(--color-ink);
+  color: var(--color-ink-dark);
+}
+
+.segment input:focus-visible + span {
+  outline: 0.25rem solid var(--color-coral);
+  outline-offset: -0.25rem;
+}
+
+.error {
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 0.4rem solid var(--color-wrong);
+  border-radius: var(--radius-s);
+  background: var(--color-night);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+@media (max-width: 40rem) {
+  .choices {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,52 @@
+.dialog {
+  width: min(calc(100vw - 2rem), 40rem);
+  padding: var(--space-5);
+  border: 0.15rem solid var(--color-night-line);
+  border-radius: var(--radius-l);
+  background: var(--color-night-raised);
+  color: var(--color-ink);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 65%);
+}
+
+.title {
+  font-size: clamp(2rem, 3vw, 3rem);
+  overflow-wrap: anywhere;
+}
+
+.text {
+  margin-block: var(--space-3) var(--space-4);
+  color: var(--color-ink-muted);
+  font-size: 1.375rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.cancel,
+.confirm {
+  min-height: 3.5rem;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-m);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cancel {
+  border: 0.15rem solid var(--color-ink-muted);
+  background: transparent;
+}
+
+.confirm {
+  border: 0;
+  background: var(--color-coral);
+  color: var(--color-ink-dark);
+}
