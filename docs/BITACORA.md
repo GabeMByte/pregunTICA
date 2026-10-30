@@ -46,3 +46,15 @@ Registro de cada funcionalidad y de cómo se usó la IA para construirla. Alimen
 - Práctica de IA usada: modo plan + TDD con subagente test-writer + hook de lint + revisión visual autónoma con Playwright (375×812 y 1920×1080) + E2E
 - Nota: la revisión visual con screenshots encontró cosas que los tests no ven: en el proyector, figuras amontonadas, botones pequeños y una cinta casi invisible; el rótulo "Incorrecta" ilegible por la opacidad; las opciones en 3 + 1 en vez de 2×2; y capturas vacías del catálogo por carga diferida. Se corrigieron antes de cada commit. La skill frontend-design no estaba disponible y se usó un sistema de tokens propio; react-router ya va en la v8 (no la 7 del plan, misma API declarativa).
 - Correcciones a mano: el E2E reutilizaba el `pnpm dev` del usuario (puertos 3000/5173, con la clave real); ahora usa sus propios puertos 3100/5174 con `ANTHROPIC_API_KEY` vacía (verificado que una variable vacía le gana a `--env-file`). El test de contraste no podía leer el CSS en jsdom (se movió a entorno node). Dos tests pasaban sin probar nada y se corrigieron: el de `clientPayloadSchemas` en shared (undefined === undefined mientras estaba en rojo) y el de desuscripción del socket, cuyo fixture era inválido. Otro solo probaba la mitad de lo que decía (responder mientras se espera la siguiente pregunta). El hook de lint atrapó un `setState` síncrono en el efecto del `Timer` y faltaba `zod` como dependencia directa de web.
+
+## 2026-10-30 — Vista del host (proyector)
+- Tests agregados: 94 (82 web, 11 server, 1 shared)
+- Archivos tocados: 74 (28 son capturas)
+- Práctica de IA usada: TDD en engine, E2E autónomo, modo plan, revisión visual con Playwright, dos sesiones en paralelo con git worktrees
+- Nota: la revisión del plan halló dos huecos del contrato (contador de respuestas y REVEAL tras recargar); las capturas revelaron que reduced-motion no anulaba los retrasos. La revisión con el subagente security-reviewer no encontró hallazgos altos ni medios (fuzz de 400 partidas sin fugas); los 3 bajos quedaron en SPEC §10.
+
+## 2026-10-30 — Vista del jugador (celular)
+- Tests agregados: 73 unitarios, más 9 pruebas Playwright
+- Archivos tocados: 24, sin contar las capturas
+- Práctica de IA usada: modo plan, tests primero en la lógica, revisión visual con Playwright, dos sesiones en paralelo con git worktrees
+- Nota: leer el orden real de eventos del servidor reveló 7 huecos antes de escribir la UI (entre ellos, que un QR nuevo reconectaba a la sala vieja). Las capturas detectaron el logo invisible sobre el fondo coral. El merge con el host entró sin conflictos y una partida completa contra el servidor integrado confirmó el nuevo contrato de question:reveal.
