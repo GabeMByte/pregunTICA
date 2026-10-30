@@ -1,0 +1,127 @@
+.page {
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: clamp(var(--space-5), 5vh, var(--space-6));
+  min-height: 100dvh;
+  padding: var(--space-5) var(--space-3);
+  overflow: hidden;
+}
+
+.hero {
+  display: grid;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.tagline {
+  max-width: 34ch;
+  margin: 0 auto;
+  font-size: clamp(1.125rem, 2.5vw, 1.625rem);
+  color: var(--color-ink-muted);
+  text-wrap: balance;
+}
+
+.actions {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 60rem;
+  margin: 0 auto;
+}
+
+@media (min-width: 48rem) {
+  .actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.action {
+  display: grid;
+  gap: var(--space-1);
+  padding: clamp(var(--space-4), 2.5vw, var(--space-5));
+  border-radius: var(--radius-l);
+  text-decoration: none;
+  box-shadow: var(--shadow-pop);
+  transition: transform 120ms ease;
+}
+
+.action:hover {
+  transform: translateY(-0.15rem);
+}
+
+.action:active {
+  transform: translateY(0.15rem);
+}
+
+.actionTitle {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 3vw, 3.25rem);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.actionHint {
+  font-size: clamp(1rem, 1.4vw, 1.375rem);
+  text-wrap: balance;
+}
+
+.primary {
+  background: var(--color-coral);
+  color: var(--color-ink-dark);
+}
+
+.secondary {
+  background: var(--color-ink);
+  color: var(--color-ink-dark);
+}
+
+/* Floating option shapes in the corners: festive, decorative, behind the content. */
+.shapes {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.shape {
+  position: absolute;
+  width: clamp(3rem, 9vw, 11rem);
+  opacity: 0.9;
+  animation: float 6s ease-in-out infinite alternate;
+}
+
+.triangle {
+  top: 6%;
+  left: 6%;
+  color: var(--color-option-a);
+  rotate: -12deg;
+}
+
+.diamond {
+  top: 10%;
+  right: 8%;
+  color: var(--color-option-b);
+  animation-delay: -1.5s;
+}
+
+.circle {
+  bottom: 8%;
+  left: 10%;
+  color: var(--color-option-c);
+  animation-delay: -3s;
+}
+
+.square {
+  bottom: 6%;
+  right: 6%;
+  color: var(--color-option-d);
+  rotate: 10deg;
+  animation-delay: -4.5s;
+}
+
+@keyframes float {
+  to {
+    translate: 0 -0.75rem;
+  }
+}

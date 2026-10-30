@@ -1,0 +1,49 @@
+/*
+ * PregunTICA design tokens. Festive and high contrast, inspired by the Costa Rican flag without
+ * copying it: a deep night blue instead of the flag blue, a warm white and a coral red, plus the
+ * tropical colors of the four answer options. Every text/background pair used here is checked for
+ * WCAG contrast in tokens.test.ts.
+ */
+:root {
+  /* Surfaces */
+  --color-night: #0a1438;
+  --color-night-raised: #142458;
+  --color-night-line: #2b3f80;
+
+  /* Text */
+  --color-ink: #fff8ec;
+  --color-ink-muted: #c3cbea;
+  --color-ink-dark: #0a1438;
+
+  /* Brand accents (flag red and a lighter flag blue) */
+  --color-coral: #ff5a5f;
+  --color-sky: #5cc8ff;
+
+  /* Answer options: color AND shape (SPEC §4 Interfaz) */
+  --color-option-a: #ff5a5f; /* triangle */
+  --color-option-b: #5cc8ff; /* diamond */
+  --color-option-c: #ffd23f; /* circle */
+  --color-option-d: #3ddc97; /* square */
+
+  /* Feedback */
+  --color-correct: #3ddc97;
+  --color-wrong: #ff5a5f;
+
+  /* Type */
+  --font-display: 'Bricolage Grotesque Variable', 'Arial Black', system-ui, sans-serif;
+  --font-body: 'Atkinson Hyperlegible Next Variable', system-ui, sans-serif;
+
+  /* Radii and spacing */
+  --radius-s: 0.5rem;
+  --radius-m: 1rem;
+  --radius-l: 1.75rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2.5rem;
+  --space-6: 4rem;
+
+  --shadow-pop: 0 0.35rem 0 rgb(0 0 0 / 35%);
+  --focus-ring: 0 0 0 0.25rem var(--color-ink), 0 0 0 0.5rem var(--color-coral);
+}

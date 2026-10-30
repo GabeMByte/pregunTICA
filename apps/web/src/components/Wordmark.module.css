@@ -1,0 +1,22 @@
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.tica {
+  color: var(--color-coral);
+}
+
+.s {
+  font-size: 1.5rem;
+}
+
+.m {
+  font-size: 2.25rem;
+}
+
+.l {
+  font-size: clamp(3rem, 12vw, 7.5rem);
+}
