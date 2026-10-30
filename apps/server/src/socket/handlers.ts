@@ -13,7 +13,8 @@ import {
 import type { GameState } from '../engine/index.js';
 import { createRateLimiter } from '../rooms/rate-limiter.js';
 import type { RoomChange, RoomRegistry } from '../rooms/room-registry.js';
-import { getClientIp } from './client-ip.js';
+import { describeError } from '../ai/safe-log.js';
+import { getClientIp, rateLimitKey } from './client-ip.js';
 import { eventsForTransition, snapshotFor, type Message, type Target, type Viewer } from './transitions.js';
 import type { Emitter, GameServer, GameSocket } from './types.js';
 
@@ -155,7 +156,7 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
         try {
           listener(...args);
         } catch (error) {
-          console.error('Socket handler failed', error);
+          console.error(`Socket handler failed: ${describeError(error)}`);
           fail('INTERNAL');
         }
       };
@@ -216,7 +217,7 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
     socket.on('host:create', guard((raw: unknown) => {
       const payload = parse(HostCreatePayloadSchema, raw);
       if (payload === null) return;
-      const result = registry.create(payload, getClientIp(socket.handshake, options.trustProxy));
+      const result = registry.create(payload, rateLimitKey(getClientIp(socket.handshake, options.trustProxy)));
       if (!result.ok) {
         fail(result.error);
         return;

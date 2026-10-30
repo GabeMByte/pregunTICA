@@ -38,7 +38,7 @@ export const realScheduler: Scheduler = {
       try {
         callback();
       } catch (error) {
-        console.error('Question timer failed', error);
+        console.error(`Question timer failed: ${describeError(error)}`);
       }
     }, delayMs),
   clear: (handle) => {
