@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { createServer, type Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
 import { LocalQuestionSource, loadFallbackBanks } from './ai/local-question-source.js';
+import { describeError } from './ai/safe-log.js';
 import type { QuestionSource } from './rooms/question-source.js';
 import { RoomRegistry, type Scheduler } from './rooms/room-registry.js';
 import { broadcastChange, notifyGenerationError, notifyTopicRejected, registerHandlers } from './socket/handlers.js';
@@ -75,7 +76,7 @@ export function createApp(overrides: Partial<AppOptions> = {}): App {
       broadcastChange(io, change);
     },
     onGenerationError: (roomCode, error) => {
-      console.error(`Question generation failed for room ${roomCode}`, error);
+      console.error(`Question generation failed for room ${roomCode}: ${describeError(error)}`);
       notifyGenerationError(io, roomCode);
     },
     onTopicRejected: (roomCode) => {
