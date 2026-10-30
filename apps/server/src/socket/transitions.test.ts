@@ -135,6 +135,14 @@ describe('snapshotFor (join and reconnection)', () => {
     expect(forHost.at(-1)?.payload).not.toHaveProperty('yourResult');
   });
 
+  it('SPEC §3: a host back in REVEAL gets the question text, with no question:start in the snapshot', () => {
+    const question = makeQuestions(5)[1];
+    const messages = snapshotFor(at('REVEAL'), { role: 'host' });
+    validate(messages);
+    expect(events(messages)).toEqual(['room:state', 'question:reveal']);
+    expect(messages.at(-1)?.payload).toMatchObject({ prompt: question?.prompt, options: question?.options });
+  });
+
   it.each([
     ['GENERATING', ['room:state']],
     ['LOBBY', ['room:state']],

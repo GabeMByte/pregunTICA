@@ -174,6 +174,9 @@ export const AnswerResultSchema = z.strictObject({
 export type AnswerResult = z.infer<typeof AnswerResultSchema>;
 
 export const QuestionRevealPayloadSchema = z.strictObject({
+  /** The question again: a client back in REVEAL never got its question:start. */
+  prompt: QuestionSchema.shape.prompt,
+  options: OptionsSchema,
   correctIndex: OptionIndexSchema,
   /** Votes per option, same order as `options`. */
   distribution: z.array(z.int().min(0)).length(OPTIONS_PER_QUESTION),

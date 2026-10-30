@@ -109,7 +109,7 @@ pregunTICA/
 | S→C | `player:joined` | `{ playerId, nickname, waitingForNextQuestion }` (solo a ese jugador) |
 | S→C | `room:state` | Estado público de la sala (fase, jugadores, índice; solo la copia del host lleva `questionOrigin`: `ai` \| `fallback` \| `null`, y en QUESTION `answeredCount` y `expectedAnswers`) |
 | S→C | `question:start` | `{ index, total, prompt, options, endsAt }` (sin respuesta correcta) |
-| S→C | `question:reveal` | `{ correctIndex, distribution, explanation, yourResult? }` |
+| S→C | `question:reveal` | `{ prompt, options, correctIndex, distribution, explanation, yourResult? }` (repite la pregunta para que un cliente que vuelve en REVEAL pueda dibujarla) |
 | S→C | `leaderboard` | `{ top: [{ nickname, score, delta }] }` |
 | S→C | `game:end` | `{ podium }` |
 | S→C | `error` | `{ code, message }` |

@@ -194,10 +194,22 @@ describe('question:start (CLAUDE.md rule #2)', () => {
 });
 
 describe('question:reveal', () => {
+  const reveal = {
+    prompt: '¿Cuál es el volcán más alto?',
+    options: ['Irazú', 'Poás', 'Arenal', 'Turrialba'],
+    correctIndex: 0,
+    distribution: [3, 1, 0, 2],
+    explanation: 'Mide 3432 m',
+  };
+
   it('requires one vote count per option', () => {
-    const base = { correctIndex: 0, explanation: 'Mide 3432 m' };
-    expect(QuestionRevealPayloadSchema.safeParse({ ...base, distribution: [3, 1, 0, 2] }).success).toBe(true);
-    expect(QuestionRevealPayloadSchema.safeParse({ ...base, distribution: [3, 1, 0] }).success).toBe(false);
+    expect(QuestionRevealPayloadSchema.safeParse({ ...reveal, distribution: [3, 1, 0, 2] }).success).toBe(true);
+    expect(QuestionRevealPayloadSchema.safeParse({ ...reveal, distribution: [3, 1, 0] }).success).toBe(false);
+  });
+
+  it('carries the question text, so REVEAL can be drawn after a reload', () => {
+    expect(QuestionRevealPayloadSchema.safeParse({ ...reveal, prompt: undefined }).success).toBe(false);
+    expect(QuestionRevealPayloadSchema.safeParse({ ...reveal, options: undefined }).success).toBe(false);
   });
 });
 

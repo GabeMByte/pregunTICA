@@ -184,6 +184,8 @@ describe('SPEC §3 REVEAL: toReveal (correct answer, distribution, explanation)'
     });
     const payload = QuestionRevealPayloadSchema.parse(toReveal(state));
     expect(payload).toEqual({
+      prompt: at(questions, 1).prompt,
+      options: at(questions, 1).options,
       correctIndex: 1,
       distribution: [0, 2, 0, 1],
       explanation: at(questions, 1).explanation,
