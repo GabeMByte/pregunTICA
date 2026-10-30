@@ -214,7 +214,7 @@ function updatePlayer(state: GameState, playerId: string, changes: Partial<Playe
   return { ...state, players: state.players.map((p) => (p.id === playerId ? { ...p, ...changes } : p)) };
 }
 
-function isEligible(player: Player, questionIndex: number): boolean {
+export function isEligible(player: Player, questionIndex: number): boolean {
   return questionIndex >= player.eligibleFrom;
 }
 

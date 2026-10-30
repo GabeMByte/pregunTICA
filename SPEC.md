@@ -107,7 +107,7 @@ pregunTICA/
 | C→S | `player:answer` | `{ roomCode, questionIndex, optionIndex }` |
 | S→C | `host:created` | `{ roomCode, hostToken }` (solo al host) |
 | S→C | `player:joined` | `{ playerId, nickname, waitingForNextQuestion }` (solo a ese jugador) |
-| S→C | `room:state` | Estado público de la sala (fase, jugadores, índice; solo la copia del host lleva `questionOrigin`: `ai` \| `fallback` \| `null`) |
+| S→C | `room:state` | Estado público de la sala (fase, jugadores, índice; solo la copia del host lleva `questionOrigin`: `ai` \| `fallback` \| `null`, y en QUESTION `answeredCount` y `expectedAnswers`) |
 | S→C | `question:start` | `{ index, total, prompt, options, endsAt }` (sin respuesta correcta) |
 | S→C | `question:reveal` | `{ correctIndex, distribution, explanation, yourResult? }` |
 | S→C | `leaderboard` | `{ top: [{ nickname, score, delta }] }` |
@@ -115,6 +115,8 @@ pregunTICA/
 | S→C | `error` | `{ code, message }` |
 
 `questionOrigin` es `null` mientras se generan las preguntas y `fallback` si salieron del banco local: el host lo muestra para que se sepa que la IA no respondió. Solo lo recibe el host: el banco local es público, así que avisar a los jugadores les diría dónde buscar las respuestas.
+
+`expectedAnswers` cuenta a los jugadores elegibles que siguen conectados o que ya respondieron: los tardíos y los desconectados sin respuesta no se esperan.
 
 Un jugador expulsado recibe `error KICKED` y sale de la sala; los demás ven el nuevo `room:state`. Se identifica por apodo porque es único en la sala y el `playerId` nunca sale del dispositivo del jugador.
 

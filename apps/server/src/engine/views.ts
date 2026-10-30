@@ -9,6 +9,7 @@ import {
   type QuestionStartPayload,
   type RoomStatePayload,
 } from '@preguntica/shared';
+import { isEligible } from './game.js';
 import type { GameState, Player } from './types.js';
 
 // Views build S→C payloads field by field (never by spreading state) so that
@@ -26,9 +27,19 @@ export function toRoomState(state: GameState): RoomStatePayload {
   };
 }
 
-/** SPEC §5: the host copy adds questionOrigin, so the host knows when the local bank was used. */
+/**
+ * SPEC §5: the host copy adds questionOrigin, so the host knows when the local bank was used, and
+ * during QUESTION how many answers came in out of those it is waiting for.
+ */
 export function toHostRoomState(state: GameState): RoomStatePayload {
-  return { ...toRoomState(state), questionOrigin: state.questionOrigin };
+  const room = { ...toRoomState(state), questionOrigin: state.questionOrigin };
+  const { phase, questionIndex, answers } = state;
+  if (phase !== 'QUESTION' || questionIndex === null) return room;
+
+  const expected = state.players.filter(
+    (p) => isEligible(p, questionIndex) && (p.connected || Object.hasOwn(answers, p.id)),
+  );
+  return { ...room, answeredCount: Object.keys(answers).length, expectedAnswers: expected.length };
 }
 
 /** Null outside QUESTION. Never includes the answer. */
