@@ -6,18 +6,19 @@ import {
   MIN_QUESTIONS,
   OPTIONS_PER_QUESTION,
   PODIUM_SIZE,
-  TOPIC_MAX_LENGTH,
-  TOPIC_MIN_LENGTH,
 } from './constants.js';
 import {
   DifficultySchema,
+  LanguageSchema,
   NicknameSchema,
   OptionIndexSchema,
   OptionsSchema,
   PhaseSchema,
   PlayerIdSchema,
+  QuestionOriginSchema,
   QuestionSchema,
   RoomCodeSchema,
+  TopicSchema,
 } from './domain.js';
 
 export const ClientEvents = {
@@ -47,9 +48,10 @@ export type ServerEvent = (typeof ServerEvents)[keyof typeof ServerEvents];
 // ---------------------------------------------------------------------------
 
 export const HostCreatePayloadSchema = z.strictObject({
-  topic: z.string().trim().min(TOPIC_MIN_LENGTH).max(TOPIC_MAX_LENGTH),
+  topic: TopicSchema,
   count: z.int().min(MIN_QUESTIONS).max(MAX_QUESTIONS),
   difficulty: DifficultySchema,
+  language: LanguageSchema.default('es'),
 });
 
 export const HostStartPayloadSchema = z.strictObject({
@@ -134,6 +136,11 @@ export const RoomStatePayloadSchema = z.strictObject({
   /** Index of the current question; null before the first one starts. */
   questionIndex: z.int().min(0).nullable(),
   totalQuestions: z.int().min(MIN_QUESTIONS).max(MAX_QUESTIONS),
+  /**
+   * Only in the host copy: null while GENERATING; 'fallback' tells the host the AI did not answer.
+   * Players never get it, since the fallback bank is public (security review M2).
+   */
+  questionOrigin: QuestionOriginSchema.nullable().optional(),
 });
 
 export const QuestionStartPayloadSchema = z.strictObject({
@@ -193,6 +200,7 @@ export const ErrorCodeSchema = z.enum([
   'QUESTIONS_NOT_READY',
   'NO_PLAYERS',
   'RATE_LIMITED',
+  'TOPIC_REJECTED',
   'INTERNAL',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;

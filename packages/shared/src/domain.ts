@@ -8,10 +8,20 @@ import {
   PROMPT_MAX_LENGTH,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
+  TOPIC_MAX_LENGTH,
+  TOPIC_MIN_LENGTH,
 } from './constants.js';
 
 export const DifficultySchema = z.enum(['easy', 'medium', 'hard']);
 export type Difficulty = z.infer<typeof DifficultySchema>;
+
+/** Language of the generated questions. The UI is always in Spanish. */
+export const LanguageSchema = z.enum(['es', 'en']);
+export type Language = z.infer<typeof LanguageSchema>;
+
+/** Where a room's questions came from: Claude, or the local bank when the AI was unavailable. */
+export const QuestionOriginSchema = z.enum(['ai', 'fallback']);
+export type QuestionOrigin = z.infer<typeof QuestionOriginSchema>;
 
 export const PhaseSchema = z.enum(['GENERATING', 'LOBBY', 'QUESTION', 'REVEAL', 'LEADERBOARD', 'PODIUM']);
 export type Phase = z.infer<typeof PhaseSchema>;
@@ -25,11 +35,12 @@ export type RoomCode = z.infer<typeof RoomCodeSchema>;
 const INVISIBLE_OR_CONTROL = /[\p{Cc}\p{Cf}]/gu;
 
 /**
+ * Normalizes free text typed by users (nicknames, topics).
  * NFKC, then format characters (zero-width, bidi overrides, BOM) are dropped, control whitespace
  * (tab, newline) becomes a space, other control characters are dropped, and spaces collapse.
  * Homoglyphs across scripts (Cyrillic "А" vs Latin "A") are deliberately not handled.
  */
-export function normalizeNickname(raw: string): string {
+export function normalizeText(raw: string): string {
   return raw
     .normalize('NFKC')
     .replace(INVISIBLE_OR_CONTROL, (c) => (/\p{Cc}/u.test(c) && /\s/u.test(c) ? ' ' : ''))
@@ -39,8 +50,11 @@ export function normalizeNickname(raw: string): string {
 
 export const NicknameSchema = z
   .string()
-  .transform(normalizeNickname)
+  .transform(normalizeText)
   .pipe(z.string().min(NICKNAME_MIN_LENGTH).max(NICKNAME_MAX_LENGTH));
+
+/** The topic reaches the AI prompt, so it gets the same normalization as nicknames. */
+export const TopicSchema = z.string().transform(normalizeText).pipe(z.string().min(TOPIC_MIN_LENGTH).max(TOPIC_MAX_LENGTH));
 
 export const PlayerIdSchema = z.uuid();
 

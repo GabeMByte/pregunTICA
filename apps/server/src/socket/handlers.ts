@@ -13,7 +13,8 @@ import {
 import type { GameState } from '../engine/index.js';
 import { createRateLimiter } from '../rooms/rate-limiter.js';
 import type { RoomChange, RoomRegistry } from '../rooms/room-registry.js';
-import { getClientIp } from './client-ip.js';
+import { describeError } from '../ai/safe-log.js';
+import { getClientIp, rateLimitKey } from './client-ip.js';
 import { eventsForTransition, snapshotFor, type Message, type Target, type Viewer } from './transitions.js';
 import type { Emitter, GameServer, GameSocket } from './types.js';
 
@@ -37,6 +38,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   QUESTIONS_NOT_READY: 'Las preguntas todavía se están generando.',
   NO_PLAYERS: 'Se necesita al menos un jugador conectado.',
   RATE_LIMITED: 'Demasiados intentos. Espera un momento y vuelve a probar.',
+  TOPIC_REJECTED: 'Ese tema no está permitido. Prueba con otro.',
   INTERNAL: 'Ocurrió un error inesperado.',
 };
 
@@ -45,14 +47,16 @@ const hostChannel = (roomCode: string) => `host:${roomCode}`;
 const playerChannel = (roomCode: string, playerId: string) => `player:${roomCode}:${playerId}`;
 const playerKey = (roomCode: string, playerId: string) => `${roomCode}:${playerId}`;
 
-function channelFor(roomCode: string, target: Target): string {
+function emitterFor(io: GameServer, roomCode: string, target: Target): Emitter {
   switch (target.kind) {
     case 'room':
-      return roomChannel(roomCode);
+      return io.to(roomChannel(roomCode));
+    case 'players':
+      return io.to(roomChannel(roomCode)).except(hostChannel(roomCode));
     case 'host':
-      return hostChannel(roomCode);
+      return io.to(hostChannel(roomCode));
     case 'player':
-      return playerChannel(roomCode, target.playerId);
+      return io.to(playerChannel(roomCode, target.playerId));
   }
 }
 
@@ -89,7 +93,7 @@ function send(to: Emitter, message: Message): void {
 /** Wire as RoomRegistry's onChange: fans a state change out to the right sockets. */
 export function broadcastChange(io: GameServer, { roomCode, previous, next }: RoomChange): void {
   for (const { to, ...message } of eventsForTransition(previous, next)) {
-    send(io.to(channelFor(roomCode, to)), message);
+    send(emitterFor(io, roomCode, to), message);
   }
 }
 
@@ -101,6 +105,22 @@ export function evictRooms(io: GameServer, roomCodes: readonly string[]): void {
   for (const roomCode of roomCodes) {
     io.in([roomChannel(roomCode), hostChannel(roomCode)]).disconnectSockets(true);
   }
+}
+
+/**
+ * Wire as RoomRegistry's onTopicRejected (SPEC §6): the host learns why, players who joined while
+ * the questions were generating learn the room is gone, and every socket of the room is disconnected.
+ */
+export function notifyTopicRejected(io: GameServer, roomCode: string): void {
+  send(io.to(hostChannel(roomCode)), {
+    event: 'error',
+    payload: { code: 'TOPIC_REJECTED', message: ERROR_MESSAGES.TOPIC_REJECTED },
+  });
+  send(io.to(roomChannel(roomCode)).except(hostChannel(roomCode)), {
+    event: 'error',
+    payload: { code: 'ROOM_NOT_FOUND', message: 'La sala se cerró.' },
+  });
+  evictRooms(io, [roomCode]);
 }
 
 /** Wire as RoomRegistry's onGenerationError: tells only the host; the room stays in GENERATING. */
@@ -136,7 +156,7 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
         try {
           listener(...args);
         } catch (error) {
-          console.error('Socket handler failed', error);
+          console.error(`Socket handler failed: ${describeError(error)}`);
           fail('INTERNAL');
         }
       };
@@ -197,7 +217,7 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
     socket.on('host:create', guard((raw: unknown) => {
       const payload = parse(HostCreatePayloadSchema, raw);
       if (payload === null) return;
-      const result = registry.create(payload, getClientIp(socket.handshake, options.trustProxy));
+      const result = registry.create(payload, rateLimitKey(getClientIp(socket.handshake, options.trustProxy)));
       if (!result.ok) {
         fail(result.error);
         return;

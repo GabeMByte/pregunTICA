@@ -6,6 +6,7 @@ import {
   QUESTION_TIME_MS,
   type ErrorCode,
   type Question,
+  type QuestionOrigin,
 } from '@preguntica/shared';
 import { scoreAnswer } from './scoring.js';
 import type { EngineResult, GameAction, GameState, NewGame, Player } from './types.js';
@@ -23,13 +24,14 @@ export function createGame({ code, topic, difficulty, count }: NewGame): GameSta
     questionStartedAt: null,
     questionEndsAt: null,
     answers: {},
+    questionOrigin: null,
   };
 }
 
 export function reduce(state: GameState, action: GameAction, now: number): EngineResult {
   switch (action.type) {
     case 'questionsReady':
-      return questionsReady(state, action.questions);
+      return questionsReady(state, action.questions, action.origin);
     case 'join':
       return join(state, action.playerId, action.nickname);
     case 'disconnect':
@@ -48,10 +50,10 @@ export function reduce(state: GameState, action: GameAction, now: number): Engin
 const success = (state: GameState): EngineResult => ({ ok: true, state });
 const failure = (error: ErrorCode): EngineResult => ({ ok: false, error });
 
-function questionsReady(state: GameState, questions: Question[]): EngineResult {
+function questionsReady(state: GameState, questions: Question[], questionOrigin: QuestionOrigin): EngineResult {
   if (state.phase !== 'GENERATING') return failure('INVALID_PHASE');
   if (questions.length === 0) return failure('INVALID_PAYLOAD');
-  return success({ ...state, phase: 'LOBBY', questions, totalQuestions: questions.length });
+  return success({ ...state, phase: 'LOBBY', questions, totalQuestions: questions.length, questionOrigin });
 }
 
 function join(state: GameState, playerId: string, rawNickname: string): EngineResult {

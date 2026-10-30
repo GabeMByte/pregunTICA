@@ -12,7 +12,9 @@
     "test:e2e": "pnpm --filter @preguntica/e2e test",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "pnpm -r typecheck",
-    "build": "pnpm --filter @preguntica/web build && pnpm --filter @preguntica/server build"
+    "build": "pnpm --filter @preguntica/web build && pnpm --filter @preguntica/server build",
+    "eval:questions": "pnpm --filter @preguntica/server eval:questions",
+    "smoke": "pnpm --filter @preguntica/server smoke"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

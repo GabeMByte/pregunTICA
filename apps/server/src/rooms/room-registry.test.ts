@@ -6,19 +6,19 @@ import {
   ROOM_CREATION_WINDOW_MS,
   ROOM_IDLE_TTL_MS,
   RoomCodeSchema,
-  type Question,
 } from '@preguntica/shared';
 import type { GameState } from '../engine/index.js';
 import { err, makeQuestions, nickname, ok, playerId } from '../engine/test-helpers.js';
-import type { QuestionRequest } from './question-source.js';
+import { TopicRejectedError, type QuestionBatch, type QuestionRequest } from './question-source.js';
 import { RoomRegistry, type CreateRoomResult, type RoomChange, type RoomConfig, type TimerHandle } from './room-registry.js';
 
 const T0 = 1_700_000_000_000;
 const IP = '203.0.113.7';
 const OTHER_IP = '198.51.100.9';
-const CONFIG: RoomConfig = { topic: 'Costa Rica', count: 5, difficulty: 'medium' };
+const CONFIG: RoomConfig = { topic: 'Costa Rica', count: 5, difficulty: 'medium', language: 'es' };
 /** All questions correct at index 0. */
 const QUESTIONS = makeQuestions(5, [0, 0, 0, 0, 0]);
+const BATCH: QuestionBatch = { questions: QUESTIONS, origin: 'ai' };
 const UNKNOWN_ROOM = 'ZZZZZZ';
 
 function token(n: number): string {
@@ -89,15 +89,16 @@ function createScheduler() {
   };
 }
 
-type GetQuestions = (request: QuestionRequest) => Promise<Question[]>;
+type GetQuestions = (request: QuestionRequest) => Promise<QuestionBatch>;
 
 function setup(options: { getQuestions?: GetQuestions; random?: () => number } = {}) {
   const clock = { now: T0 };
   let tokens = 0;
   const scheduler = createScheduler();
-  const getQuestions = vi.fn<GetQuestions>(options.getQuestions ?? (() => Promise.resolve(QUESTIONS)));
+  const getQuestions = vi.fn<GetQuestions>(options.getQuestions ?? (() => Promise.resolve(BATCH)));
   const onChange = vi.fn<(change: RoomChange) => void>();
   const onGenerationError = vi.fn<(roomCode: string, error: unknown) => void>();
+  const onTopicRejected = vi.fn<(roomCode: string) => void>();
   const registry = new RoomRegistry({
     clock: () => clock.now,
     random: options.random ?? lcg(42),
@@ -106,8 +107,9 @@ function setup(options: { getQuestions?: GetQuestions; random?: () => number } =
     scheduler: { set: scheduler.set, clear: scheduler.clear },
     onChange,
     onGenerationError,
+    onTopicRejected,
   });
-  return { registry, clock, scheduler, getQuestions, onChange, onGenerationError };
+  return { registry, clock, scheduler, getQuestions, onChange, onGenerationError, onTopicRejected };
 }
 
 type Harness = ReturnType<typeof setup>;
@@ -162,8 +164,8 @@ describe('SPEC §3 GENERATING: create', () => {
   });
 
   it('stores the room in GENERATING with the requested topic and difficulty', () => {
-    const h = setup({ getQuestions: () => deferred<Question[]>().promise });
-    const { roomCode } = created(h.registry.create({ topic: 'Volcanes', count: 7, difficulty: 'hard' }, IP));
+    const h = setup({ getQuestions: () => deferred<QuestionBatch>().promise });
+    const { roomCode } = created(h.registry.create({ topic: 'Volcanes', count: 7, difficulty: 'hard', language: 'es' }, IP));
     expect(current(h, roomCode)).toMatchObject({
       code: roomCode,
       phase: 'GENERATING',
@@ -199,11 +201,19 @@ describe('SPEC §3 GENERATING: create', () => {
 });
 
 describe('SPEC §3 GENERATING → LOBBY: questions generated in the background', () => {
-  it('asks the question source for topic, count and difficulty', () => {
+  it('asks the question source for topic, count, difficulty and language', () => {
     const h = setup();
-    h.registry.create({ topic: 'Volcanes', count: 7, difficulty: 'easy' }, IP);
+    h.registry.create({ topic: 'Volcanes', count: 7, difficulty: 'easy', language: 'en' }, IP);
     expect(h.getQuestions).toHaveBeenCalledTimes(1);
-    expect(h.getQuestions).toHaveBeenCalledWith({ topic: 'Volcanes', count: 7, difficulty: 'easy' });
+    expect(h.getQuestions).toHaveBeenCalledWith({ topic: 'Volcanes', count: 7, difficulty: 'easy', language: 'en' });
+  });
+
+  it.each(['ai', 'fallback'] as const)('SPEC §6: the room records the question origin (%s)', async (origin) => {
+    const h = setup({ getQuestions: () => Promise.resolve({ questions: QUESTIONS, origin }) });
+    const { roomCode } = created(h.registry.create(CONFIG, IP));
+    await vi.waitFor(() => {
+      expect(h.registry.get(roomCode)?.questionOrigin).toBe(origin);
+    });
   });
 
   it('moves the room to LOBBY when the questions resolve and notifies onChange', async () => {
@@ -219,13 +229,13 @@ describe('SPEC §3 GENERATING → LOBBY: questions generated in the background',
   });
 
   it('players can join while GENERATING and are kept when the questions arrive', async () => {
-    const pending = deferred<Question[]>();
+    const pending = deferred<QuestionBatch>();
     const h = setup({ getQuestions: () => pending.promise });
     const { roomCode } = created(h.registry.create(CONFIG, IP));
     ok(h.registry.dispatch(roomCode, { type: 'join', playerId: playerId(1), nickname: nickname(1) }));
     expect(current(h, roomCode).phase).toBe('GENERATING');
 
-    pending.resolve(QUESTIONS);
+    pending.resolve(BATCH);
     await pending.promise;
     await vi.waitFor(() => {
       expect(h.registry.get(roomCode)?.phase).toBe('LOBBY');
@@ -258,7 +268,7 @@ describe('SPEC §3 GENERATING → LOBBY: questions generated in the background',
   });
 
   it('a manually rejected deferred also leaves the room in GENERATING', async () => {
-    const pending = deferred<Question[]>();
+    const pending = deferred<QuestionBatch>();
     const h = setup({ getQuestions: () => pending.promise });
     const { roomCode } = created(h.registry.create(CONFIG, IP));
     const failure = new Error('timeout');
@@ -303,7 +313,7 @@ describe('SPEC §4 Motor puro: dispatch applies engine actions', () => {
   });
 
   it('returns engine errors as-is without calling onChange or changing the room', () => {
-    const h = setup({ getQuestions: () => deferred<Question[]>().promise });
+    const h = setup({ getQuestions: () => deferred<QuestionBatch>().promise });
     const { roomCode } = created(h.registry.create(CONFIG, IP));
     const before = current(h, roomCode);
     h.onChange.mockClear();
@@ -559,18 +569,18 @@ describe('SPEC §3 Límites: rooms idle for more than 1 h are removed', () => {
 
 describe('security review B3: a room code reused after a sweep', () => {
   it('late questions of the swept room never reach the new room with the same code', async () => {
-    const first = deferred<Question[]>();
-    const second = deferred<Question[]>();
+    const first = deferred<QuestionBatch>();
+    const second = deferred<QuestionBatch>();
     const pending = [first, second];
     // random = 0 always yields the same code once it is free again.
-    const h = setup({ random: () => 0, getQuestions: () => pending.shift()?.promise ?? Promise.resolve(QUESTIONS) });
+    const h = setup({ random: () => 0, getQuestions: () => pending.shift()?.promise ?? Promise.resolve(BATCH) });
     const old = created(h.registry.create(CONFIG, IP));
     h.clock.now = T0 + ROOM_IDLE_TTL_MS + 1;
     expect(h.registry.sweep()).toEqual([old.roomCode]);
     const reused = created(h.registry.create({ ...CONFIG, topic: 'Otro' }, OTHER_IP));
     expect(reused.roomCode).toBe(old.roomCode);
 
-    first.resolve(QUESTIONS);
+    first.resolve(BATCH);
     await first.promise;
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(current(h, reused.roomCode).phase).toBe('GENERATING');
@@ -591,5 +601,42 @@ describe('SPEC §5 hostToken never reaches other clients', () => {
       expect(JSON.stringify(change.next)).not.toContain(hostToken);
     }
     expect(JSON.stringify(current(h, roomCode))).not.toContain(hostToken);
+  });
+});
+
+describe('SPEC §6 Tema rechazado: the room is closed', () => {
+  it('removes the room and calls onTopicRejected, not onGenerationError', async () => {
+    const h = setup({ getQuestions: () => Promise.reject(new TopicRejectedError()) });
+    const { roomCode, hostToken } = created(h.registry.create(CONFIG, IP));
+    await vi.waitFor(() => {
+      expect(h.onTopicRejected).toHaveBeenCalledWith(roomCode);
+    });
+    expect(h.registry.get(roomCode)).toBeUndefined();
+    expect(h.registry.verifyHost(roomCode, hostToken)).toBe(false);
+    expect(h.onGenerationError).not.toHaveBeenCalled();
+  });
+
+  it('the rejected attempt still counts towards the room creation limit', async () => {
+    const h = setup({ getQuestions: () => Promise.reject(new TopicRejectedError()) });
+    for (let i = 0; i < ROOM_CREATION_LIMIT; i++) created(h.registry.create(CONFIG, IP));
+    await vi.waitFor(() => {
+      expect(h.onTopicRejected).toHaveBeenCalledTimes(ROOM_CREATION_LIMIT);
+    });
+    expect(h.registry.create(CONFIG, IP)).toEqual({ ok: false, error: 'RATE_LIMITED' });
+  });
+});
+
+describe('remove', () => {
+  it('deletes the room, clears its pending timer and returns true', async () => {
+    const h = setup();
+    const { roomCode } = await startedRoom(h, 1);
+    expect(h.scheduler.active()).toHaveLength(1);
+    expect(h.registry.remove(roomCode)).toBe(true);
+    expect(h.registry.get(roomCode)).toBeUndefined();
+    expect(h.scheduler.active()).toHaveLength(0);
+  });
+
+  it('returns false for an unknown room', () => {
+    expect(setup().registry.remove(UNKNOWN_ROOM)).toBe(false);
   });
 });
