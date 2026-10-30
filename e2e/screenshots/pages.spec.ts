@@ -14,6 +14,7 @@ const PAGES = [
   { name: 'home', path: '/' },
   { name: 'host', path: '/host' },
   { name: 'play-code', path: '/play/ABC234' },
+  { name: 'components', path: '/dev/componentes' },
 ] as const;
 
 mkdirSync(OUT_DIR, { recursive: true });
@@ -25,6 +26,8 @@ for (const viewport of VIEWPORTS) {
       // Stills for the presentation: no floating animations mid-frame.
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(target.path);
+      // The dev catalog is lazy-loaded: wait for real content, not just the load event.
+      await page.getByRole('heading').first().waitFor();
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: `${OUT_DIR}${target.name}-${viewport.name}.png`, fullPage: true });
     });
