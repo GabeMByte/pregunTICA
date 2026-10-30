@@ -117,14 +117,17 @@ pregunTICA/
 - Los temas históricos, científicos o educativos sensibles (guerras, drogas en la medicina, etc.) son válidos.
 - El tema va delimitado como dato (`<topic>…</topic>`), nunca como instrucción.
 - Esquema por pregunta: `prompt` (≤120 car.), `options` (4 textos únicos, ≤60 car.), `correctIndex` (0–3), `explanation` (≤160 car.).
-- Validar con Zod más chequeos extra: cantidad exacta, opciones únicas sin importar mayúsculas y preguntas sin duplicar. Si falla, **un reintento** devolviendo los errores de validación concretos al modelo.
-- **Barajar las opciones en el servidor** con aleatoriedad inyectada (los modelos tienden a sesgar la posición correcta).
+- Los textos del modelo se normalizan igual que los de los jugadores (NFKC, sin caracteres invisibles, bidi ni de control). Validar con Zod más chequeos extra: cantidad exacta, opciones únicas sin importar mayúsculas y preguntas sin duplicar. Si falla, **un reintento** devolviendo los errores de validación concretos al modelo.
+- **Barajar en el servidor** con aleatoriedad inyectada (los modelos tienden a sesgar la posición correcta). Se baraja el orden de las preguntas y de las opciones **en cada entrega**, también si vienen de la caché, para que dos salas con el mismo tema no tengan las respuestas en la misma posición.
+- `max_tokens` según la cantidad: 2000 + 400 por pregunta, con un máximo de 8000.
 - Idioma de las preguntas: español o inglés, según `language`.
 - **Timeout de 15 s** (incluye el reintento); luego, respaldo.
 - **Respaldo para la demo**: si la API falla, se agota el tiempo o no hay `ANTHROPIC_API_KEY`, se usan los bancos locales `apps/server/src/ai/fallback.es.json` y `fallback.en.json`, y el host lo ve con `questionOrigin: 'fallback'`.
 - **Tema rechazado**: el host recibe `error TOPIC_REJECTED`, los jugadores que hubieran entrado reciben `ROOM_NOT_FOUND` y la sala se cierra. No se usa el respaldo (sería saltarse el filtro) y el intento cuenta para el límite de salas por IP.
-- **Caché** en memoria por tema normalizado (NFKC, minúsculas, espacios colapsados) + `count` + `difficulty` + `language`. Solo guarda preguntas generadas por la IA; máximo 100 entradas.
+- **Caché** en memoria por tema normalizado (NFKC, minúsculas, espacios colapsados) + `count` + `difficulty` + `language`. Solo guarda preguntas generadas por la IA; máximo 100 entradas (se desaloja la menos usada). Los temas de `WARM_TOPICS` quedan fijos y no cuentan para ese máximo.
 - **`WARM_TOPICS`** (lista separada por comas): al arrancar se precalienta la caché con esos temas en español, 5 preguntas, dificultad media.
+- **Tope global de gasto**: máximo 3 generaciones con IA en paralelo y 60 por hora, sin importar la IP; al superarlo se usa el banco local. El límite de salas por IP agrupa las direcciones IPv6 por su prefijo /64.
+- Composición: `Shuffled(Cached(Limited(Fallback(Claude, Local))))`.
 - **Nunca registrar la API key**: los errores del SDK se registran solo con nombre, status y mensaje.
 - **Evaluación** (`pnpm eval:questions`, fuera del CI, usa la API real): compara modelos en 12 temas × 2 idiomas, con rechazos falsos de temas delicados reportados aparte.
 
@@ -161,6 +164,13 @@ Hallazgos de la revisión de seguridad del Día 3 que no se corrigen en el MVP:
 - **Un socket host anterior conserva el control tras `host:rejoin`**: requiere haber tenido el `hostToken`, que solo recibe el host.
 - **Los jugadores pueden ver cuántos han respondido y cuándo** (`room:state` en QUESTION): no revela qué opción eligieron ni la respuesta correcta, y el host lo muestra de todos modos.
 - **No se valida el `Origin` de las conexiones**: no hay cookies ni sesiones que robar. Se resuelve en el despliegue limitando CORS al dominio propio.
+
+Hallazgos de la revisión de seguridad del Día 4 que no se corrigen en el MVP:
+
+- **La caché reutiliza las mismas preguntas entre salas**: aunque el orden se baraja en cada entrega, quien juegue antes el mismo tema reconoce el texto de la respuesta correcta. Requiere crear otra sala con el mismo tema, cantidad, dificultad e idioma.
+- **El filtro de temas no aplica cuando la IA no responde** (timeout, error o sin clave): las preguntas del banco son inofensivas y solo el host elige el tema que se muestra.
+- **Los temas rechazados no se cachean**: repetirlos vuelve a llamar a la API, pero cada intento cuenta para el límite de salas por IP y para el tope global.
+- **Una sala cuyo respaldo también falla queda en GENERATING** hasta el barrido: requiere que falle el banco local, que se valida al arrancar.
 
 ### Pendiente
 - `host:kick` (Día 5): el host puede expulsar a un jugador desde la pantalla del proyector. Se define primero en `packages/shared`.
