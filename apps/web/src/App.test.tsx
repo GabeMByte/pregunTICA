@@ -32,7 +32,7 @@ describe('SPEC §4 Interfaz: routes', () => {
 
   it('/play/:code (the QR link) shows the code already filled in, normalized', () => {
     renderAt('/play/abc234');
-    expect(screen.getByText('ABC234')).toBeDefined();
+    expect(screen.getByLabelText<HTMLInputElement>('Código de sala').value).toBe('ABC234');
   });
 
   it('/play/:code with an invalid code ignores it', () => {

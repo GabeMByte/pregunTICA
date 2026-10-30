@@ -1,27 +1,51 @@
 import { RoomCodeSchema } from '@preguntica/shared';
-import { Link, useParams } from 'react-router';
-import { Wordmark } from '../components/Wordmark.js';
-import styles from '../routes/Placeholder.module.css';
+import { useParams } from 'react-router';
+import { StatusScreen } from '../components/StatusScreen.js';
+import type { GameSocket } from '../net/socket.js';
+import { playerScreen } from './player-view.js';
+import { JoinScreen } from './screens/JoinScreen.js';
+import { LobbyScreen } from './screens/LobbyScreen.js';
+import { usePlayerGame } from './usePlayerGame.js';
 
-/** Placeholder until Day 5 part 2 builds the phone view on top of usePlayerGame. */
-export function PlayerPage() {
+export interface PlayerPageProps {
+  /** Must be stable across renders. */
+  createSocket?: () => GameSocket;
+}
+
+/** The phone view: picks the screen for the current state; the game state lives in usePlayerGame. */
+export function PlayerPage({ createSocket }: PlayerPageProps) {
   const { code } = useParams();
   // The code comes from the URL (the QR): validated like any other input.
-  const roomCode = RoomCodeSchema.safeParse(code ?? '');
+  const parsedCode = RoomCodeSchema.safeParse(code ?? '');
+  const urlRoomCode = parsedCode.success ? parsedCode.data : undefined;
+  const { state, join, dismissError, retry } = usePlayerGame({ createSocket, urlRoomCode });
+  const { session, room, error } = state;
+  const screen = playerScreen(state);
 
-  return (
-    <main className={styles.page}>
-      <Link to="/" className={styles.brand} aria-label="Volver al inicio">
-        <Wordmark size="s" />
-      </Link>
-      <h1 className={styles.title}>Unirme</h1>
-      {roomCode.success ? (
-        <p className={styles.text}>
-          Sala <strong className={styles.code}>{roomCode.data}</strong>
-        </p>
-      ) : (
-        <p className={styles.text}>Ingresa el código de la sala para unirte.</p>
-      )}
-    </main>
-  );
+  if (screen === 'join') {
+    return (
+      <JoinScreen
+        initialRoomCode={urlRoomCode ?? session?.roomCode ?? ''}
+        initialNickname={session?.nickname ?? ''}
+        error={error}
+        connected={state.connection === 'connected'}
+        joining={state.joining}
+        onJoin={join}
+        onDismissError={dismissError}
+      />
+    );
+  }
+  if (screen === 'kicked') {
+    return <StatusScreen kind="error" title="Te sacaron de la sala" message="Ya no participas en esta partida." showHome />;
+  }
+  if (screen === 'reconnecting') {
+    return <StatusScreen kind="disconnected" message="Intentando volver a tu partida…" onRetry={retry} />;
+  }
+  if (screen === 'connecting') return <StatusScreen kind="connecting" />;
+
+  if (screen === 'lobby' && session !== null && room !== null) {
+    return <LobbyScreen nickname={session.nickname} topic={room.topic} playerCount={room.players.length} waiting={state.waitingForNextQuestion} />;
+  }
+  // Between room:state and the data of the new phase.
+  return <StatusScreen kind="connecting" title="Prepárate…" />;
 }

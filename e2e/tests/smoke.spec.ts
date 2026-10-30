@@ -15,5 +15,5 @@ test('host view loads', async ({ page }) => {
 
 test('the QR link opens the player view with the code filled in', async ({ page }) => {
   await page.goto('/play/abc234');
-  await expect(page.getByText('ABC234')).toBeVisible();
+  await expect(page.getByLabel('Código de sala')).toHaveValue('ABC234');
 });
