@@ -220,7 +220,8 @@ describe('room:state', () => {
   });
 
   it('security review M2: questionOrigin is optional (only the host copy carries it)', () => {
-    const { questionOrigin: _hostOnly, ...forPlayers } = payload;
+    const forPlayers: Record<string, unknown> = { ...payload };
+    delete forPlayers.questionOrigin;
     expect(RoomStatePayloadSchema.safeParse(forPlayers).success).toBe(true);
   });
 
