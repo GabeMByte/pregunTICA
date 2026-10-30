@@ -20,6 +20,8 @@ export class CachedQuestionSource implements QuestionSource {
   /** Map order is insertion order: the first key is the least recently used. */
   private readonly entries = new Map<string, QuestionBatch>();
   private readonly inFlight = new Map<string, Promise<QuestionBatch>>();
+  /** WARM_TOPICS entries: never evicted, so junk topics cannot push the demo out (security review B2). */
+  private readonly pinned = new Map<string, QuestionBatch>();
 
   constructor(
     private readonly inner: QuestionSource,
@@ -28,6 +30,8 @@ export class CachedQuestionSource implements QuestionSource {
 
   async getQuestions(request: QuestionRequest): Promise<QuestionBatch> {
     const key = cacheKey(request);
+    const pinned = this.pinned.get(key);
+    if (pinned !== undefined) return structuredClone(pinned);
     const cached = this.entries.get(key);
     if (cached !== undefined) {
       this.entries.delete(key);
@@ -43,19 +47,27 @@ export class CachedQuestionSource implements QuestionSource {
     return structuredClone(await pending);
   }
 
-  /** Number of cached entries (for tests and logs). */
+  /** Number of cached entries, pinned (warmed) plus LRU (for tests and logs). */
   get size(): number {
-    return this.entries.size;
+    return this.pinned.size + this.entries.size;
   }
 
   /**
    * WARM_TOPICS: generates each topic in sequence (Spanish, 5 questions, medium) so the demo is
    * instant. Never rejects: failures are reported through onError and the next topic continues.
+   * Warmed AI batches are pinned: the LRU never evicts them and they do not count toward maxEntries.
    */
   async warm(topics: readonly string[], onError?: (topic: string, error: unknown) => void): Promise<void> {
     for (const topic of topics) {
       try {
-        await this.getQuestions({ ...WARM_REQUEST, topic });
+        const request = { ...WARM_REQUEST, topic };
+        await this.getQuestions(request);
+        const key = cacheKey(request);
+        const stored = this.entries.get(key);
+        if (stored !== undefined) {
+          this.entries.delete(key);
+          this.pinned.set(key, stored);
+        }
       } catch (error) {
         onError?.(topic, error);
       }

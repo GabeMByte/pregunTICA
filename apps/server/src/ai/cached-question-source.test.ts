@@ -236,3 +236,76 @@ describe('SPEC §6 WARM_TOPICS (warm)', () => {
     expect(inner).not.toHaveBeenCalled();
   });
 });
+
+describe('security review B2: warmed topics are pinned (never evicted by the LRU)', () => {
+  const WARMED: QuestionRequest = { topic: 'Volcanes', count: 5, difficulty: 'medium', language: 'es' };
+  const topic = (i: number): QuestionRequest => ({ ...REQUEST, topic: `Topic ${String(i)}` });
+
+  it('with maxEntries 2: warm Volcanes, then 5 other topics → Volcanes (es, 5, medium) is still a hit', async () => {
+    const { cache, inner } = setup(undefined, 2);
+    await cache.warm(['Volcanes']);
+    for (let i = 0; i < 5; i++) await cache.getQuestions(topic(i));
+    expect(inner).toHaveBeenCalledTimes(6);
+
+    await expect(cache.getQuestions(WARMED)).resolves.toEqual(batchFor(WARMED));
+    expect(inner).toHaveBeenCalledTimes(6);
+  });
+
+  it('pinned entries do not count against maxEntries: size = pinned + LRU entries', async () => {
+    const { cache } = setup(undefined, 2);
+    await cache.warm(['Volcanes', 'Café']);
+    expect(cache.size).toBe(2);
+    for (let i = 0; i < 5; i++) await cache.getQuestions(topic(i));
+    expect(cache.size).toBe(4);
+  });
+
+  it('non-warmed entries still follow the LRU with maxEntries: A, B, C after a warm → A is evicted, B and C stay', async () => {
+    const { cache, inner } = setup(undefined, 2);
+    await cache.warm(['Volcanes']);
+    await cache.getQuestions(topic(0));
+    await cache.getQuestions(topic(1));
+    await cache.getQuestions(topic(2));
+    expect(inner).toHaveBeenCalledTimes(4);
+
+    await cache.getQuestions(topic(2));
+    await cache.getQuestions(topic(1));
+    expect(inner).toHaveBeenCalledTimes(4);
+    await cache.getQuestions(topic(0));
+    expect(inner).toHaveBeenCalledTimes(5);
+    expect(inner.mock.calls[4]?.[0].topic).toBe('Topic 0');
+  });
+
+  it('only the warmed key is pinned: the same topic with another count is a normal LRU entry', async () => {
+    const { cache, inner } = setup(undefined, 2);
+    await cache.warm(['Volcanes']);
+    await cache.getQuestions({ ...WARMED, count: 6 });
+    await cache.getQuestions(topic(0));
+    await cache.getQuestions(topic(1));
+    expect(inner).toHaveBeenCalledTimes(4);
+
+    await cache.getQuestions({ ...WARMED, count: 6 });
+    expect(inner).toHaveBeenCalledTimes(5);
+    await cache.getQuestions(WARMED);
+    expect(inner).toHaveBeenCalledTimes(5);
+  });
+
+  it('a warmed topic that came back as fallback is neither stored nor pinned', async () => {
+    const { cache, inner } = setup((request) => Promise.resolve(batchFor(request, 'fallback')), 2);
+    await cache.warm(['Volcanes']);
+    expect(cache.size).toBe(0);
+    await cache.getQuestions(WARMED);
+    expect(inner).toHaveBeenCalledTimes(2);
+  });
+
+  it('reading a pinned topic many times never evicts the LRU entries', async () => {
+    const { cache, inner } = setup(undefined, 2);
+    await cache.warm(['Volcanes']);
+    await cache.getQuestions(topic(0));
+    await cache.getQuestions(topic(1));
+    for (let i = 0; i < 3; i++) await cache.getQuestions(WARMED);
+    await cache.getQuestions(topic(0));
+    await cache.getQuestions(topic(1));
+    expect(inner).toHaveBeenCalledTimes(3);
+    expect(cache.size).toBe(3);
+  });
+});
