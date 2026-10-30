@@ -77,7 +77,7 @@ export function makeGeneratingGame(players: number, now = NOW): GameState {
 /** Game in LOBBY with `questions` loaded and players 1..n joined. */
 export function makeLobbyGame(players: number, questions: Question[] = makeQuestions(5), now = NOW): GameState {
   let state = createGame(newGame({ count: questions.length }));
-  state = ok(reduce(state, { type: 'questionsReady', questions }, now));
+  state = ok(reduce(state, { type: 'questionsReady', origin: 'ai', questions }, now));
   for (let i = 1; i <= players; i++) {
     state = ok(reduce(state, { type: 'join', playerId: playerId(i), nickname: nickname(i) }, now));
   }
@@ -128,6 +128,7 @@ export function makeState(overrides: Partial<GameState> = {}): GameState {
     questionStartedAt: null,
     questionEndsAt: null,
     answers: {},
+    questionOrigin: overrides.phase === 'GENERATING' ? null : 'ai',
     ...overrides,
   };
 }

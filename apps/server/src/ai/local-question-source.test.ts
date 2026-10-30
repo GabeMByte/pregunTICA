@@ -3,7 +3,7 @@ import { MAX_QUESTIONS, QuestionSchema, type Question } from '@preguntica/shared
 import { makeQuestions } from '../engine/test-helpers.js';
 import { LocalQuestionSource, loadFallbackBank } from './local-question-source.js';
 
-const request = { topic: 'Cultura general', difficulty: 'medium' } as const;
+const request = { topic: 'Cultura general', difficulty: 'medium', language: 'es' } as const;
 
 describe('SPEC §6 fallback bank (ai/fallback.json)', () => {
   it('every question is valid for QuestionSchema', () => {
@@ -26,21 +26,27 @@ describe('SPEC §6 fallback bank (ai/fallback.json)', () => {
 describe('LocalQuestionSource', () => {
   it('returns exactly the requested number of questions', async () => {
     const source = new LocalQuestionSource(makeQuestions(10));
-    expect(await source.getQuestions({ ...request, count: 5 })).toHaveLength(5);
+    expect((await source.getQuestions({ ...request, count: 5 })).questions).toHaveLength(5);
   });
 
   it('cycles through the bank when more questions are requested than it has', async () => {
     const bank = makeQuestions(3);
-    const questions = await new LocalQuestionSource(bank).getQuestions({ ...request, count: 5 });
+    const { questions } = await new LocalQuestionSource(bank).getQuestions({ ...request, count: 5 });
     expect(questions.map((q) => q.prompt)).toEqual([0, 1, 2, 0, 1].map((i) => bank[i]?.prompt));
   });
 
   it('returns copies, so callers cannot mutate the bank', async () => {
     const bank: Question[] = makeQuestions(5);
-    const [first] = await new LocalQuestionSource(bank).getQuestions({ ...request, count: 5 });
+    const {
+      questions: [first],
+    } = await new LocalQuestionSource(bank).getQuestions({ ...request, count: 5 });
     if (first === undefined) throw new Error('expected a question');
     first.options[0] = 'changed';
     expect(bank[0]?.options[0]).not.toBe('changed');
+  });
+
+  it('SPEC §6: marks its questions as fallback', async () => {
+    expect((await new LocalQuestionSource(makeQuestions(5)).getQuestions({ ...request, count: 5 })).origin).toBe('fallback');
   });
 
   it('rejects an empty bank at construction', () => {

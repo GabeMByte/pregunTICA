@@ -17,7 +17,7 @@ function disconnectedMidGame(): GameState {
 
 describe('Engine purity (CLAUDE.md rule #1): reduce never mutates its input', () => {
   it.each<{ name: string; build: () => GameState; action: GameAction; now: number }>([
-    { name: 'questionsReady', build: () => createGame(newGame()), action: { type: 'questionsReady', questions: makeQuestions(5) }, now: NOW },
+    { name: 'questionsReady', build: () => createGame(newGame()), action: { type: 'questionsReady', origin: 'ai', questions: makeQuestions(5) }, now: NOW },
     { name: 'join (new player)', build: () => makeLobbyGame(1), action: { type: 'join', playerId: playerId(2), nickname: 'Beto' }, now: NOW },
     { name: 'join (reconnection)', build: disconnectedMidGame, action: { type: 'join', playerId: playerId(1), nickname: 'Ana' }, now: NOW },
     { name: 'disconnect', build: () => makeStartedGame(2), action: { type: 'disconnect', playerId: playerId(1) }, now: NOW },

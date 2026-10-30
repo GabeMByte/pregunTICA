@@ -37,6 +37,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   QUESTIONS_NOT_READY: 'Las preguntas todavía se están generando.',
   NO_PLAYERS: 'Se necesita al menos un jugador conectado.',
   RATE_LIMITED: 'Demasiados intentos. Espera un momento y vuelve a probar.',
+  TOPIC_REJECTED: 'Ese tema no está permitido. Prueba con otro.',
   INTERNAL: 'Ocurrió un error inesperado.',
 };
 
@@ -101,6 +102,22 @@ export function evictRooms(io: GameServer, roomCodes: readonly string[]): void {
   for (const roomCode of roomCodes) {
     io.in([roomChannel(roomCode), hostChannel(roomCode)]).disconnectSockets(true);
   }
+}
+
+/**
+ * Wire as RoomRegistry's onTopicRejected (SPEC §6): the host learns why, players who joined while
+ * the questions were generating learn the room is gone, and every socket of the room is disconnected.
+ */
+export function notifyTopicRejected(io: GameServer, roomCode: string): void {
+  send(io.to(hostChannel(roomCode)), {
+    event: 'error',
+    payload: { code: 'TOPIC_REJECTED', message: ERROR_MESSAGES.TOPIC_REJECTED },
+  });
+  send(io.to(roomChannel(roomCode)).except(hostChannel(roomCode)), {
+    event: 'error',
+    payload: { code: 'ROOM_NOT_FOUND', message: 'La sala se cerró.' },
+  });
+  evictRooms(io, [roomCode]);
 }
 
 /** Wire as RoomRegistry's onGenerationError: tells only the host; the room stays in GENERATING. */

@@ -1,4 +1,4 @@
-import type { AnswerResult, Difficulty, ErrorCode, Phase, Question } from '@preguntica/shared';
+import type { AnswerResult, Difficulty, ErrorCode, Phase, Question, QuestionOrigin } from '@preguntica/shared';
 
 export interface Player {
   /** Client-generated UUID; the reconnection secret. Never sent to other clients. */
@@ -35,10 +35,12 @@ export interface GameState {
   questionEndsAt: number | null;
   /** Answers to the current question, keyed by player id. */
   answers: Record<string, Answer>;
+  /** Where the questions came from; null while GENERATING. */
+  questionOrigin: QuestionOrigin | null;
 }
 
 export type GameAction =
-  | { type: 'questionsReady'; questions: Question[] }
+  | { type: 'questionsReady'; questions: Question[]; origin: QuestionOrigin }
   | { type: 'join'; playerId: string; nickname: string }
   | { type: 'disconnect'; playerId: string }
   | { type: 'start' }

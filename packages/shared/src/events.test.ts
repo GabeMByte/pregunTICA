@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ClientEvents,
+  ErrorPayloadSchema,
   clientPayloadSchemas,
   HostCreatedPayloadSchema,
   HostCreatePayloadSchema,
@@ -99,6 +100,27 @@ describe('host:create', () => {
       HostCreatePayloadSchema.safeParse({ topic: 'Volcanes', count: 5, difficulty: 'easy', admin: true }).success,
     ).toBe(false);
   });
+
+  it('SPEC §2: the question language defaults to Spanish', () => {
+    expect(HostCreatePayloadSchema.parse({ topic: 'Volcanes', count: 5, difficulty: 'easy' }).language).toBe('es');
+  });
+
+  it.each(['es', 'en'] as const)('accepts language %s', (language) => {
+    expect(HostCreatePayloadSchema.parse({ topic: 'Volcanes', count: 5, difficulty: 'easy', language }).language).toBe(language);
+  });
+
+  it('rejects any other language', () => {
+    expect(HostCreatePayloadSchema.safeParse({ topic: 'Volcanes', count: 5, difficulty: 'easy', language: 'fr' }).success).toBe(false);
+  });
+
+  it('SPEC §6: normalizes the topic like nicknames before it reaches the prompt', () => {
+    const parsed = HostCreatePayloadSchema.parse({ topic: 'Vol\u200Bcanes  de\n\u202ECosta Rica', count: 5, difficulty: 'easy' });
+    expect(parsed.topic).toBe('Volcanes de Costa Rica');
+  });
+
+  it('rejects a topic that is too short once invisible characters are removed', () => {
+    expect(HostCreatePayloadSchema.safeParse({ topic: 'A\u200B\u200B', count: 5, difficulty: 'easy' }).success).toBe(false);
+  });
 });
 
 describe('player:join', () => {
@@ -186,14 +208,30 @@ describe('room:state', () => {
     players: [{ nickname: 'Ana', score: 0, connected: true }],
     questionIndex: null,
     totalQuestions: 5,
+    questionOrigin: 'ai',
   };
 
   it('accepts the public state', () => {
     expect(RoomStatePayloadSchema.safeParse(payload).success).toBe(true);
   });
 
+  it.each(['ai', 'fallback', null])('SPEC §5: accepts questionOrigin %s', (questionOrigin) => {
+    expect(RoomStatePayloadSchema.safeParse({ ...payload, questionOrigin }).success).toBe(true);
+  });
+
+  it('requires questionOrigin and rejects unknown origins', () => {
+    expect(RoomStatePayloadSchema.safeParse({ ...payload, questionOrigin: undefined }).success).toBe(false);
+    expect(RoomStatePayloadSchema.safeParse({ ...payload, questionOrigin: 'cache' }).success).toBe(false);
+  });
+
   it('rejects players that expose their playerId', () => {
     const leaky = { ...payload, players: [{ nickname: 'Ana', score: 0, connected: true, playerId: PLAYER_ID }] };
     expect(RoomStatePayloadSchema.safeParse(leaky).success).toBe(false);
+  });
+});
+
+describe('error codes', () => {
+  it('SPEC §6: include TOPIC_REJECTED', () => {
+    expect(ErrorPayloadSchema.safeParse({ code: 'TOPIC_REJECTED', message: 'Tema no permitido' }).success).toBe(true);
   });
 });

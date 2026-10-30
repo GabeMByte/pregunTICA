@@ -35,30 +35,39 @@ function leaderboardGame(players = 1, questions = makeQuestions(5)): GameState {
 describe('SPEC §3 Máquina de estados: GENERATING → LOBBY on questionsReady', () => {
   it('moves to LOBBY and stores the questions', () => {
     const questions = makeQuestions(5);
-    const state = ok(reduce(createGame(newGame({ count: 5 })), { type: 'questionsReady', questions }, NOW));
+    const state = ok(reduce(createGame(newGame({ count: 5 })), { type: 'questionsReady', origin: 'ai', questions }, NOW));
     expect(state.phase).toBe('LOBBY');
     expect(state.questions).toEqual(questions);
     expect(state.totalQuestions).toBe(5);
     expect(state.questionIndex).toBeNull();
   });
 
+  it('SPEC §6: a new game has no question origin yet', () => {
+    expect(createGame(newGame()).questionOrigin).toBeNull();
+  });
+
+  it.each(['ai', 'fallback'] as const)('SPEC §6: stores where the questions came from (%s)', (origin) => {
+    const state = ok(reduce(createGame(newGame()), { type: 'questionsReady', origin, questions: makeQuestions(5) }, NOW));
+    expect(state.questionOrigin).toBe(origin);
+  });
+
   it('sets totalQuestions to the number of questions actually received', () => {
-    const state = ok(reduce(createGame(newGame({ count: 10 })), { type: 'questionsReady', questions: makeQuestions(7) }, NOW));
+    const state = ok(reduce(createGame(newGame({ count: 10 })), { type: 'questionsReady', origin: 'ai', questions: makeQuestions(7) }, NOW));
     expect(state.totalQuestions).toBe(7);
   });
 
   it('keeps players who joined during GENERATING', () => {
-    const state = ok(reduce(makeGeneratingGame(3), { type: 'questionsReady', questions: makeQuestions(5) }, NOW));
+    const state = ok(reduce(makeGeneratingGame(3), { type: 'questionsReady', origin: 'ai', questions: makeQuestions(5) }, NOW));
     expect(state.players.map((p) => p.id)).toEqual([playerId(1), playerId(2), playerId(3)]);
   });
 
   it('rejects an empty question list with INVALID_PAYLOAD', () => {
-    expect(err(reduce(createGame(newGame()), { type: 'questionsReady', questions: [] }, NOW))).toBe('INVALID_PAYLOAD');
+    expect(err(reduce(createGame(newGame()), { type: 'questionsReady', origin: 'ai', questions: [] }, NOW))).toBe('INVALID_PAYLOAD');
   });
 
   it.each(['LOBBY', 'QUESTION', 'REVEAL', 'LEADERBOARD', 'PODIUM'] as const)('rejects questionsReady in %s with INVALID_PHASE', (phase) => {
     const state = makeState({ phase, players: [makePlayer(1)], questionIndex: phase === 'LOBBY' ? null : 0, questionStartedAt: NOW, questionEndsAt: NOW + T });
-    expect(err(reduce(state, { type: 'questionsReady', questions: makeQuestions(5) }, NOW))).toBe('INVALID_PHASE');
+    expect(err(reduce(state, { type: 'questionsReady', origin: 'ai', questions: makeQuestions(5) }, NOW))).toBe('INVALID_PHASE');
   });
 });
 
@@ -199,7 +208,7 @@ describe('SPEC §3 Máquina de estados: full run', () => {
     let state = createGame(newGame({ count: 2 }));
     phases.push(state.phase);
     state = ok(reduce(state, { type: 'join', playerId: playerId(1), nickname: 'Ana' }, now));
-    state = ok(reduce(state, { type: 'questionsReady', questions: makeQuestions(2) }, now));
+    state = ok(reduce(state, { type: 'questionsReady', origin: 'ai', questions: makeQuestions(2) }, now));
     phases.push(state.phase);
     state = ok(reduce(state, { type: 'start' }, now));
     phases.push(state.phase);

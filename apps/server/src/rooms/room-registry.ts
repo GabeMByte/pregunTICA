@@ -5,9 +5,10 @@ import {
   ROOM_IDLE_TTL_MS,
   type Difficulty,
   type ErrorCode,
+  type Language,
 } from '@preguntica/shared';
 import { createGame, reduce, type EngineResult, type GameAction, type GameState } from '../engine/index.js';
-import type { QuestionSource } from './question-source.js';
+import { TopicRejectedError, type QuestionSource } from './question-source.js';
 import { createRateLimiter } from './rate-limiter.js';
 import { generateRoomCode } from './room-code.js';
 
@@ -38,12 +39,15 @@ export interface RoomRegistryDeps {
   onChange: (change: RoomChange) => void;
   /** Called when the question source rejects; the room stays in GENERATING. */
   onGenerationError: (roomCode: string, error: unknown) => void;
+  /** Called after a room is removed because the AI rejected its topic (SPEC §6). */
+  onTopicRejected: (roomCode: string) => void;
 }
 
 export interface RoomConfig {
   topic: string;
   count: number;
   difficulty: Difficulty;
+  language: Language;
 }
 
 export type CreateRoomResult =
@@ -73,7 +77,8 @@ export class RoomRegistry {
 
     const roomCode = generateRoomCode(this.deps.random, (code) => this.rooms.has(code));
     const hostToken = this.deps.newToken();
-    const room: Room = { state: createGame({ code: roomCode, ...config }), hostToken, lastActivityAt: now, timer: null };
+    const { topic, count, difficulty } = config;
+    const room: Room = { state: createGame({ code: roomCode, topic, count, difficulty }), hostToken, lastActivityAt: now, timer: null };
     this.rooms.set(roomCode, room);
     this.generateQuestions(roomCode, room, config);
     return { ok: true, roomCode, hostToken };
@@ -110,6 +115,14 @@ export class RoomRegistry {
     return expected.length === actual.length && timingSafeEqual(expected, actual);
   }
 
+  /** Deletes a room and cancels its timer. False for unknown rooms. */
+  remove(roomCode: string): boolean {
+    const room = this.rooms.get(roomCode);
+    if (room === undefined) return false;
+    this.clearTimer(room);
+    return this.rooms.delete(roomCode);
+  }
+
   /** Removes rooms idle for more than ROOM_IDLE_TTL_MS, cancelling their timers. Returns removed codes. */
   sweep(): string[] {
     const now = this.deps.clock();
@@ -128,14 +141,20 @@ export class RoomRegistry {
     // async wrapper: a synchronous throw from the source becomes a rejection too.
     const load = async () => this.deps.questionSource.getQuestions(config);
     void load()
-      .then((questions) => {
+      .then(({ questions, origin }) => {
         // Swept while generating, or the code now belongs to a new room: identity, not just the code.
         if (this.rooms.get(roomCode) !== room) return;
-        const result = this.dispatch(roomCode, { type: 'questionsReady', questions });
+        const result = this.dispatch(roomCode, { type: 'questionsReady', questions, origin });
         if (!result.ok) throw new Error(`questionsReady failed: ${result.error}`);
       })
       // Also catches a throw while applying the questions, which would otherwise be an unhandled rejection.
       .catch((error: unknown) => {
+        if (error instanceof TopicRejectedError) {
+          if (this.rooms.get(roomCode) !== room) return;
+          this.remove(roomCode);
+          this.deps.onTopicRejected(roomCode);
+          return;
+        }
         this.deps.onGenerationError(roomCode, error);
       });
   }

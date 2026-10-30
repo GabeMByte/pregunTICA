@@ -61,7 +61,12 @@ describe('CLAUDE.md rule #2 / SPEC §3: toRoomState (public room view)', () => {
       ],
       questionIndex: null,
       totalQuestions: 5,
+      questionOrigin: 'ai',
     });
+  });
+
+  it.each(['fallback', null] as const)('SPEC §5: exposes questionOrigin %s so the host knows the AI did not answer', (questionOrigin) => {
+    expect(toRoomState(makeState({ questionOrigin })).questionOrigin).toBe(questionOrigin);
   });
 
   it('never leaks player ids', () => {

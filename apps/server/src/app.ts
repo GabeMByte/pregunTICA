@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import { LocalQuestionSource, loadFallbackBank } from './ai/local-question-source.js';
 import type { QuestionSource } from './rooms/question-source.js';
 import { RoomRegistry, type Scheduler } from './rooms/room-registry.js';
-import { broadcastChange, notifyGenerationError, registerHandlers } from './socket/handlers.js';
+import { broadcastChange, notifyGenerationError, notifyTopicRejected, registerHandlers } from './socket/handlers.js';
 import type { GameServer } from './socket/types.js';
 
 /** Largest accepted socket message. Every client payload is a few hundred bytes at most. */
@@ -74,6 +74,9 @@ export function createApp(overrides: Partial<AppOptions> = {}): App {
     onGenerationError: (roomCode, error) => {
       console.error(`Question generation failed for room ${roomCode}`, error);
       notifyGenerationError(io, roomCode);
+    },
+    onTopicRejected: (roomCode) => {
+      notifyTopicRejected(io, roomCode);
     },
   });
 

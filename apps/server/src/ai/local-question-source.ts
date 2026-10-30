@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { QuestionSchema, type Question } from '@preguntica/shared';
-import type { QuestionRequest, QuestionSource } from '../rooms/question-source.js';
+import type { QuestionBatch, QuestionRequest, QuestionSource } from '../rooms/question-source.js';
 import fallback from './fallback.json' with { type: 'json' };
 
 /** Question source backed by a local bank (fallback.json). Day 4 uses it as the demo fallback. */
@@ -10,9 +10,9 @@ export class LocalQuestionSource implements QuestionSource {
   }
 
   /** The first `count` questions, cycling through the bank if it is shorter. */
-  getQuestions({ count }: QuestionRequest): Promise<Question[]> {
+  getQuestions({ count }: QuestionRequest): Promise<QuestionBatch> {
     const questions = Array.from({ length: count }, (_, i) => structuredClone(this.bank[i % this.bank.length]));
-    return Promise.resolve(questions.filter((q): q is Question => q !== undefined));
+    return Promise.resolve({ questions: questions.filter((q): q is Question => q !== undefined), origin: 'fallback' });
   }
 }
 

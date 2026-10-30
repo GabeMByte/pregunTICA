@@ -22,6 +22,7 @@ export function toRoomState(state: GameState): RoomStatePayload {
     players: state.players.map(({ nickname, score, connected }) => ({ nickname, score, connected })),
     questionIndex: state.questionIndex,
     totalQuestions: state.totalQuestions,
+    questionOrigin: state.questionOrigin,
   };
 }
 
