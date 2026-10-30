@@ -188,3 +188,9 @@ Hallazgos de la revisión de seguridad del Día 4 que no se corrigen en el MVP:
 Decisiones del Día 5 que aceptan un riesgo:
 
 - **Un jugador expulsado puede volver con otro `playerId`** (por ejemplo, borrando el almacenamiento del navegador): entra como jugador nuevo y el host puede volver a expulsarlo. Bloquear por IP afectaría a toda un aula que comparte el router.
+
+Hallazgos de la revisión de seguridad del Día 5 que no se corrigen en el MVP:
+
+- **Un cliente modificado puede reconstruir `answeredCount` contando los `room:state` idénticos que recibe en QUESTION**: los contadores solo viajan en la copia del host, pero cada respuesta sigue emitiendo un `room:state` a los jugadores. Se acepta porque solo revela cuántos respondieron, no qué eligieron ni cuál es la correcta.
+- **El host puede ver "0 de 0 respondieron" hasta 20 s** si todos los jugadores se desconectan en LEADERBOARD y avanza: la pregunta empieza sin nadie esperado. Se acepta porque es solo visual y el temporizador cierra la pregunta.
+- **Un cliente y un servidor de versiones distintas pierden eventos en silencio**: los esquemas estrictos descartan el payload y la pantalla se queda como estaba. Se acepta porque solo ocurre entre despliegues y las salas en memoria no sobreviven al reinicio.
