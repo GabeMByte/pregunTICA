@@ -2,7 +2,7 @@ import { ServerEvents, type ErrorCode } from '@preguntica/shared';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PLAYER_ID, QUESTION, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
+import { PLAYER_ID, QUESTION, REVEAL, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
 import { FakeSocket } from '../net/fake-socket.js';
 import { PLAYER_KEY, savePlayerSession } from '../net/storage.js';
 import { PlayerPage } from './PlayerPage.js';
@@ -208,6 +208,82 @@ describe('question', () => {
   });
 });
 
+describe('results', () => {
+  /** Twelve players with Tica last: outside both the top 5 and the podium. */
+  const players = [
+    ...Array.from({ length: 11 }, (_, i) => ({ nickname: `P${String(i)}`, score: 1000 - i, connected: true })),
+    { nickname: 'Tica', score: 10, connected: true },
+  ];
+
+  function inRoom(phase: string, roomPlayers = players) {
+    savePlayerSession(SESSION);
+    renderAt();
+    receive(ServerEvents.PlayerJoined, { playerId: PLAYER_ID, nickname: 'Tica', waitingForNextQuestion: false });
+    receive(ServerEvents.RoomState, { ...ROOM_STATE, phase, questionIndex: 0, players: roomPlayers });
+  }
+
+  it('a right answer shows points, streak and position', () => {
+    inRoom('REVEAL');
+    receive(ServerEvents.QuestionReveal, { ...REVEAL, yourResult: { correct: true, points: 950, streak: 3, totalScore: 1900 } });
+    expect(screen.getByRole('heading', { name: '¡Correcto!' })).toBeDefined();
+    expect(screen.getByText('+950')).toBeDefined();
+    expect(screen.getByText('3')).toBeDefined();
+    expect(screen.getByText(/Vas en el puesto/).textContent).toBe('Vas en el puesto 12 de 12');
+  });
+
+  it('a wrong answer says so, with no points', () => {
+    inRoom('REVEAL');
+    receive(ServerEvents.QuestionReveal, { ...REVEAL, yourResult: { correct: false, points: 0, streak: 0, totalScore: 0 } });
+    expect(screen.getByRole('heading', { name: 'Incorrecto' })).toBeDefined();
+    expect(screen.getByText('+0')).toBeDefined();
+  });
+
+  it('never invents a result the server did not send', () => {
+    inRoom('REVEAL');
+    receive(ServerEvents.QuestionReveal, REVEAL);
+    expect(screen.getByRole('heading', { name: 'Mira la pantalla' })).toBeDefined();
+  });
+
+  it('the leaderboard shows the position of a player outside the top 5', () => {
+    inRoom('LEADERBOARD');
+    receive(ServerEvents.Leaderboard, { top: players.slice(0, 5).map(({ nickname, score }) => ({ nickname, score, delta: 0 })) });
+    expect(screen.getByRole('heading', { name: 'Tu posición' })).toBeDefined();
+    expect(screen.getByText('12')).toBeDefined();
+    expect(screen.getByText('de 12')).toBeDefined();
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
+  });
+
+  it('the leaderboard highlights your row', () => {
+    inRoom('LEADERBOARD', ROOM_STATE.players);
+    receive(ServerEvents.Leaderboard, { top: [{ nickname: 'Tica', score: 900, delta: 900 }] });
+    expect(screen.getByRole('listitem').getAttribute('aria-current')).toBe('true');
+  });
+
+  it('the podium gives the final position after the session ended', () => {
+    inRoom('PODIUM');
+    receive(ServerEvents.GameEnd, { podium: players.slice(0, 3).map(({ nickname, score }, i) => ({ rank: i + 1, nickname, score })) });
+    expect(screen.getByRole('heading', { name: 'Terminaste en' })).toBeDefined();
+    expect(screen.getByText('12')).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Volver al inicio' })).toBeDefined();
+    expect(localStorage.getItem(PLAYER_KEY)).toBeNull();
+  });
+
+  it('the winner is told so', () => {
+    inRoom('PODIUM', ROOM_STATE.players);
+    receive(ServerEvents.GameEnd, { podium: [{ rank: 1, nickname: 'Tica', score: 900 }] });
+    expect(screen.getByRole('heading', { name: '¡Ganaste!' })).toBeDefined();
+  });
+
+  it('the podium stays up when the connection drops', () => {
+    inRoom('PODIUM');
+    receive(ServerEvents.GameEnd, { podium: [] });
+    act(() => {
+      fake.disconnect();
+    });
+    expect(screen.getByRole('heading', { name: 'Terminaste en' })).toBeDefined();
+  });
+});
+
 describe('reconnection', () => {
   it('a reload rejoins with the stored playerId and skips the form', () => {
     savePlayerSession(SESSION);
@@ -225,6 +301,15 @@ describe('reconnection', () => {
     receive(ServerEvents.Error, { code: 'NICKNAME_TAKEN', message: 'x' });
     expect(nicknameInput().value).toBe('Tica');
     expect(codeInput().value).toBe(ROOM_CODE);
+  });
+
+  it('a reload in REVEAL shows the result again', () => {
+    savePlayerSession(SESSION);
+    renderAt();
+    receive(ServerEvents.PlayerJoined, { playerId: PLAYER_ID, nickname: 'Tica', waitingForNextQuestion: false });
+    receive(ServerEvents.RoomState, { ...ROOM_STATE, phase: 'REVEAL', questionIndex: 0 });
+    receive(ServerEvents.QuestionReveal, { ...REVEAL, yourResult: { correct: true, points: 900, streak: 1, totalScore: 900 } });
+    expect(screen.getByRole('heading', { name: '¡Correcto!' })).toBeDefined();
   });
 
   it('a dropped connection offers to retry', () => {
