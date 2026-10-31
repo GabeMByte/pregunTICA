@@ -11,7 +11,7 @@ Demostrar dos cosas:
 ## 2. Alcance (MVP)
 
 ### Incluido
-- Host crea sala: tema, cantidad de preguntas (5–15), dificultad (fácil/media/difícil) e idioma de las preguntas (español o inglés). La interfaz siempre está en español.
+- Host crea sala: tema, cantidad de preguntas (5–15), dificultad (fácil/media/difícil) e idioma de las preguntas (español o inglés). La interfaz está en español e inglés, cada dispositivo en el suyo e independiente del idioma de las preguntas (ver §4 Idioma).
 - Código de sala de 6 caracteres + QR para unirse.
 - Jugadores se unen con apodo desde el celular (sin registro).
 - Preguntas de 4 opciones, temporizador de 20 s.
@@ -88,6 +88,14 @@ pregunTICA/
 - **Dirección visual**: festiva y de alto contraste, inspirada en los colores de la bandera de Costa Rica sin ser literal. El host se diseña para proyector (texto grande); el jugador, mobile first.
 - **Las 4 opciones se distinguen por color y por forma**: A rojo con triángulo, B azul con rombo, C amarillo con círculo, D verde con cuadrado. Nunca solo por color.
 - Un hook de estado por vista (`useHostGame`, `usePlayerGame`); todo lo que llega del servidor se valida con los esquemas Zod de `shared`. `hostToken` y `playerId` se guardan en `localStorage` para la reconexión.
+
+### Idioma
+- **Español e inglés**, sin librería: diccionarios tipados en `apps/web/src/i18n` (`es.ts` es la referencia y `en.ts` tiene su tipo, así que falta o sobra una clave y no compila). Los componentes leen los textos con `useT()`, también los `aria-label`. Un test recorre los `.tsx` y falla con archivo y línea si aparece texto literal en JSX.
+- **Idioma inicial**: si alguno de `navigator.languages` empieza con `es`, español; si no, inglés. Un selector ES / EN discreto lo cambia; la elección se guarda en `localStorage` (`preguntica:locale`) y gana sobre la detección. `<html lang>` sigue al idioma.
+- **Cada dispositivo tiene el suyo**: el proyector puede estar en español y un celular en inglés. Es independiente del idioma de las preguntas de la sala; en el formulario del host, el idioma de las preguntas arranca igual al de la interfaz y la sigue hasta que el host elige otro.
+- **El selector solo aparece en pantallas tranquilas**: inicio, formulario del host, lobby (host y jugador), unirse y podio. Se oculta en QUESTION, REVEAL y LEADERBOARD (y mientras un jugador tardío espera) para evitar toques accidentales en el celular y no saturar el proyector.
+- **Errores por código**: el cliente traduce cada `ErrorCode` y sus propios fallos (`SEND_FAILED`, `NO_RESPONSE`) con el diccionario, con textos más claros en el formulario de unirse y en el host. El `message` del servidor solo se muestra para un código que el cliente no conoce.
+- **Números con `Intl`**: `12 345` en español (es-CR) y `12,345` en inglés (en-US).
 
 ### Principios
 - **Servidor autoritativo**: el cliente nunca recibe la respuesta correcta antes de REVEAL.

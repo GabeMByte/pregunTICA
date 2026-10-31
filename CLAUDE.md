@@ -38,7 +38,7 @@ pnpm smoke --topic "…" [--language en]  # sala real contra pnpm dev (solo el u
 
 ## Convenciones
 
-- Código, nombres y commits en inglés; textos de la UI en español.
+- Código, nombres y commits en inglés; textos de la UI en español e inglés, siempre por los diccionarios de `apps/web/src/i18n` (nunca literales en JSX: un test lo verifica).
 - TypeScript estricto, sin `any`.
 - Commits convencionales (`feat:`, `fix:`, `test:`, `chore:`), pequeños y frecuentes.
 - Componentes de React pequeños; estado del juego en un solo hook por vista (`useHostGame`, `usePlayerGame`).
