@@ -1,4 +1,4 @@
-import { MAX_PLAYERS, TOPIC_MAX_LENGTH, TOPIC_MIN_LENGTH } from '@preguntica/shared';
+import { MAX_PLAYERS, NICKNAME_MAX_LENGTH, ROOM_CODE_LENGTH, TOPIC_MAX_LENGTH, TOPIC_MIN_LENGTH } from '@preguntica/shared';
 import type { Dictionary } from './es.js';
 
 /** English dictionary. Typed with the Spanish one: a missing or extra key does not compile. */
@@ -35,6 +35,7 @@ export const en: Dictionary = {
   ranking: {
     rank: (rank: number) => `Place ${String(rank)}`,
   },
+  progress: (number: number, total: number) => `Question ${String(number)} of ${String(total)}`,
   errors: {
     INVALID_PAYLOAD: 'The data sent is not valid.',
     ROOM_NOT_FOUND: 'There is no room with that code.',
@@ -83,7 +84,6 @@ export const en: Dictionary = {
   },
   host: {
     recovering: 'Recovering your room…',
-    progress: (number: number, total: number) => `Question ${String(number)} of ${String(total)}`,
     code: 'Code',
     shortcut: 'Space',
     close: 'Close',
@@ -128,5 +128,50 @@ export const en: Dictionary = {
     title: 'Final podium!',
     empty: 'This game ended with no players.',
     again: 'New game',
+  },
+  join: {
+    title: 'Join',
+    codeHint: 'Enter the room code to join.',
+    nicknameHint: 'Pick your nickname to enter the room.',
+    roomCode: 'Room code',
+    nickname: 'Your nickname',
+    invalidCode: `The code has ${String(ROOM_CODE_LENGTH)} letters and numbers.`,
+    invalidNickname: `Write a nickname of up to ${String(NICKNAME_MAX_LENGTH)} characters.`,
+    submit: 'Enter',
+    joining: 'Entering…',
+  },
+  player: {
+    kickedTitle: 'You were removed from the room',
+    kickedMessage: 'You are no longer part of this game.',
+    reconnecting: 'Trying to get you back into your game…',
+    getReady: 'Get ready…',
+  },
+  playerLobby: {
+    title: "You're in",
+    waitNext: 'Wait for the next question',
+    waitStart: 'Wait for the game to start',
+    players: (count: number) => (count === 1 ? '1 player in the room' : `${String(count)} players in the room`),
+  },
+  playerQuestion: {
+    sent: 'Answer sent',
+    choose: 'Pick an answer',
+  },
+  playerReveal: {
+    position: "You're in place",
+    of: 'of',
+    lookUp: 'Look at the screen',
+    correct: 'Correct!',
+    wrong: 'Wrong',
+    points: 'Points earned',
+    streak: 'Streak',
+  },
+  result: {
+    standing: 'Your standing',
+    won: 'You won!',
+    finished: 'You finished',
+    gameOver: 'Game over',
+    ranking: 'Leaderboard',
+    place: 'Place',
+    of: 'of',
   },
 };

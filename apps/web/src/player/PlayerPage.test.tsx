@@ -4,6 +4,8 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PLAYER_ID, QUESTION, REVEAL, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
 import { FakeSocket } from '../net/fake-socket.js';
+import { I18nProvider } from '../i18n/I18nProvider.js';
+import { LOCALE_KEY } from '../i18n/locale.js';
 import { PLAYER_KEY, savePlayerSession } from '../net/storage.js';
 import { PlayerPage } from './PlayerPage.js';
 import { REQUEST_TIMEOUT_MS } from './usePlayerGame.js';
@@ -372,5 +374,103 @@ describe('PlayerPage over plain HTTP (pnpm dev:lan) and failed joins', () => {
       vi.advanceTimersByTime(REQUEST_TIMEOUT_MS * 2);
     });
     expect(screen.getByRole('heading', { name: 'Estás dentro' })).toBeDefined();
+  });
+});
+
+describe('PlayerPage in English', () => {
+  function renderInEnglish() {
+    localStorage.setItem(LOCALE_KEY, 'en');
+    return render(
+      <I18nProvider>
+        <MemoryRouter initialEntries={[`/play/${ROOM_CODE}`]}>
+          <Routes>
+            <Route path="/play/:code?" element={<PlayerPage createSocket={createSocket} />} />
+          </Routes>
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+  }
+
+  it('joins, plays and reads the results in English, with English numbers', () => {
+    renderInEnglish();
+    fireEvent.change(screen.getByLabelText('Your nickname'), { target: { value: 'Tica' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Enter' }));
+    receive(ServerEvents.Error, { code: 'NICKNAME_TAKEN', message: 'Ese apodo ya está en uso en la sala.' });
+    expect(screen.getByRole('alert').textContent).toBe('That nickname is already taken in this room. Try another one.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enter' }));
+    receive(ServerEvents.PlayerJoined, { playerId: PLAYER_ID, nickname: 'Tica', waitingForNextQuestion: false });
+    receive(ServerEvents.RoomState, ROOM_STATE);
+    expect(screen.getByRole('heading', { name: "You're in" })).toBeDefined();
+    expect(screen.getByText(/1 player in the room/)).toBeDefined();
+
+    receive(ServerEvents.RoomState, { ...ROOM_STATE, phase: 'QUESTION', questionIndex: 0 });
+    receive(ServerEvents.QuestionStart, { ...QUESTION, endsAt: Date.now() + 15_000 });
+    expect(screen.getByText(`Question 1 of ${String(QUESTION.total)}`)).toBeDefined();
+
+    receive(ServerEvents.RoomState, { ...ROOM_STATE, phase: 'REVEAL', questionIndex: 0 });
+    receive(ServerEvents.QuestionReveal, { ...REVEAL, yourResult: { correct: true, points: 1250, streak: 2, totalScore: 1250 } });
+    expect(screen.getByRole('heading', { name: 'Correct!' })).toBeDefined();
+    expect(screen.getByText('+1,250')).toBeDefined();
+    expect(screen.getByText(/You're in place/).textContent).toBe("You're in place 1 of 1");
+  });
+});
+
+describe('language switch', () => {
+  const languageSwitch = () => screen.queryByRole('group', { name: 'Idioma' });
+
+  function inRoom(phase: string) {
+    savePlayerSession(SESSION);
+    renderAt();
+    receive(ServerEvents.PlayerJoined, { playerId: PLAYER_ID, nickname: 'Tica', waitingForNextQuestion: false });
+    receive(ServerEvents.RoomState, { ...ROOM_STATE, phase, questionIndex: phase === 'LOBBY' ? null : 0 });
+  }
+
+  it('is on the join screen', () => {
+    renderAt();
+    expect(languageSwitch()).not.toBeNull();
+  });
+
+  it('is in the lobby', () => {
+    joinedLobby();
+    expect(screen.getByRole('heading', { name: 'Estás dentro' })).toBeDefined();
+    expect(languageSwitch()).not.toBeNull();
+  });
+
+  it('is on the final podium', () => {
+    inRoom('PODIUM');
+    receive(ServerEvents.GameEnd, { podium: [{ rank: 1, nickname: 'Tica', score: 900 }] });
+    expect(screen.getByRole('heading', { name: '¡Ganaste!' })).toBeDefined();
+    expect(languageSwitch()).not.toBeNull();
+  });
+
+  it('is hidden during the question', () => {
+    inRoom('QUESTION');
+    receive(ServerEvents.QuestionStart, { ...QUESTION, endsAt: Date.now() + 15_000 });
+    expect(screen.getByRole('heading', { name: QUESTION.prompt })).toBeDefined();
+    expect(languageSwitch()).toBeNull();
+  });
+
+  it('is hidden during the reveal', () => {
+    inRoom('REVEAL');
+    receive(ServerEvents.QuestionReveal, REVEAL);
+    expect(screen.getByRole('heading', { name: 'Mira la pantalla' })).toBeDefined();
+    expect(languageSwitch()).toBeNull();
+  });
+
+  it('is hidden during the leaderboard', () => {
+    inRoom('LEADERBOARD');
+    receive(ServerEvents.Leaderboard, { top: [{ nickname: 'Tica', score: 900, delta: 900 }] });
+    expect(screen.getByRole('heading', { name: 'Tu posición' })).toBeDefined();
+    expect(languageSwitch()).toBeNull();
+  });
+
+  it('is hidden for a late player waiting while a question is under way', () => {
+    renderAt();
+    submit();
+    receive(ServerEvents.PlayerJoined, { playerId: PLAYER_ID, nickname: 'Tica', waitingForNextQuestion: true });
+    receive(ServerEvents.RoomState, { ...ROOM_STATE, phase: 'QUESTION', questionIndex: 0 });
+    expect(screen.getByText('Espera a la siguiente pregunta')).toBeDefined();
+    expect(languageSwitch()).toBeNull();
   });
 });

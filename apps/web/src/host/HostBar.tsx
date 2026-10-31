@@ -6,7 +6,7 @@ import styles from './HostBar.module.css';
 /** Keeps the room code in sight: late players can join during the game (SPEC §3). */
 export function HostBar({ room }: { room: RoomStatePayload }) {
   const { t } = useT();
-  const progress = room.questionIndex === null ? null : t.host.progress(room.questionIndex + 1, room.totalQuestions);
+  const progress = room.questionIndex === null ? null : t.progress(room.questionIndex + 1, room.totalQuestions);
   return (
     <header className={styles.bar}>
       <Wordmark size="s" />

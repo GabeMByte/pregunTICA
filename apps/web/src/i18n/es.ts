@@ -1,4 +1,4 @@
-import { MAX_PLAYERS, TOPIC_MAX_LENGTH, TOPIC_MIN_LENGTH } from '@preguntica/shared';
+import { MAX_PLAYERS, NICKNAME_MAX_LENGTH, ROOM_CODE_LENGTH, TOPIC_MAX_LENGTH, TOPIC_MIN_LENGTH } from '@preguntica/shared';
 import type { GameErrorCode } from '../game/requests.js';
 
 /**
@@ -38,6 +38,7 @@ export const es = {
   ranking: {
     rank: (rank: number) => `Puesto ${String(rank)}`,
   },
+  progress: (number: number, total: number) => `Pregunta ${String(number)} de ${String(total)}`,
   /** Every code, so a known error never shows the server's Spanish text in another language. */
   errors: {
     INVALID_PAYLOAD: 'Los datos enviados no son válidos.',
@@ -89,7 +90,6 @@ export const es = {
   },
   host: {
     recovering: 'Recuperando tu sala…',
-    progress: (number: number, total: number) => `Pregunta ${String(number)} de ${String(total)}`,
     code: 'Código',
     shortcut: 'Espacio',
     close: 'Cerrar',
@@ -135,6 +135,53 @@ export const es = {
     title: '¡Podio final!',
     empty: 'Esta partida terminó sin jugadores.',
     again: 'Nueva partida',
+  },
+  join: {
+    title: 'Unirme',
+    codeHint: 'Ingresa el código de la sala para unirte.',
+    nicknameHint: 'Elige tu apodo para entrar a la sala.',
+    roomCode: 'Código de sala',
+    nickname: 'Tu apodo',
+    invalidCode: `El código tiene ${String(ROOM_CODE_LENGTH)} letras y números.`,
+    invalidNickname: `Escribe un apodo de hasta ${String(NICKNAME_MAX_LENGTH)} caracteres.`,
+    submit: 'Entrar',
+    joining: 'Entrando…',
+  },
+  player: {
+    kickedTitle: 'Te sacaron de la sala',
+    kickedMessage: 'Ya no participas en esta partida.',
+    reconnecting: 'Intentando volver a tu partida…',
+    getReady: 'Prepárate…',
+  },
+  playerLobby: {
+    title: 'Estás dentro',
+    waitNext: 'Espera a la siguiente pregunta',
+    waitStart: 'Espera a que empiece la partida',
+    players: (count: number) => (count === 1 ? '1 jugador en la sala' : `${String(count)} jugadores en la sala`),
+  },
+  playerQuestion: {
+    sent: 'Respuesta enviada',
+    choose: 'Elige una respuesta',
+  },
+  playerReveal: {
+    /** Around the rank and the total: "Vas en el puesto 2 de 7". */
+    position: 'Vas en el puesto',
+    of: 'de',
+    lookUp: 'Mira la pantalla',
+    correct: '¡Correcto!',
+    wrong: 'Incorrecto',
+    points: 'Puntos ganados',
+    streak: 'Racha',
+  },
+  result: {
+    standing: 'Tu posición',
+    won: '¡Ganaste!',
+    finished: 'Terminaste en',
+    gameOver: 'Fin de la partida',
+    ranking: 'Ranking',
+    /** Around the rank and the total: "Puesto 2 de 7". */
+    place: 'Puesto',
+    of: 'de',
   },
 };
 

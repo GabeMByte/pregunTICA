@@ -1,6 +1,7 @@
 import { RoomCodeSchema } from '@preguntica/shared';
 import { useParams } from 'react-router';
 import { StatusScreen } from '../components/StatusScreen.js';
+import { useT } from '../i18n/useT.js';
 import type { GameSocket } from '../net/socket.js';
 import { playerRank, playerScreen } from './player-view.js';
 import { JoinScreen } from './screens/JoinScreen.js';
@@ -17,6 +18,7 @@ export interface PlayerPageProps {
 
 /** The phone view: picks the screen for the current state; the game state lives in usePlayerGame. */
 export function PlayerPage({ createSocket }: PlayerPageProps) {
+  const { t } = useT();
   const { code } = useParams();
   // The code comes from the URL (the QR): validated like any other input.
   const parsedCode = RoomCodeSchema.safeParse(code ?? '');
@@ -41,10 +43,10 @@ export function PlayerPage({ createSocket }: PlayerPageProps) {
     );
   }
   if (screen === 'kicked') {
-    return <StatusScreen kind="error" title="Te sacaron de la sala" message="Ya no participas en esta partida." showHome />;
+    return <StatusScreen kind="error" title={t.player.kickedTitle} message={t.player.kickedMessage} showHome />;
   }
   if (screen === 'reconnecting') {
-    return <StatusScreen kind="disconnected" message="Intentando volver a tu partida…" onRetry={retry} />;
+    return <StatusScreen kind="disconnected" message={t.player.reconnecting} onRetry={retry} />;
   }
   if (screen === 'connecting') return <StatusScreen kind="connecting" />;
 
@@ -60,5 +62,5 @@ export function PlayerPage({ createSocket }: PlayerPageProps) {
   }
   if (screen === 'podium' && podium !== null) return <ResultScreen final entries={podium} nickname={nickname} rank={rank} />;
   // Between room:state and the data of the new phase.
-  return <StatusScreen kind="connecting" title="Prepárate…" />;
+  return <StatusScreen kind="connecting" title={t.player.getReady} />;
 }
