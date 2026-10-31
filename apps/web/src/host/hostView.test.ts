@@ -2,7 +2,17 @@ import { QUESTION_TIME_MS, type Phase } from '@preguntica/shared';
 import { describe, expect, it } from 'vitest';
 import { HOST_TOKEN, QUESTION, REVEAL, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
 import { initialHostState, type HostState } from './hostReducer.js';
-import { canStart, joinUrl, localEndsAt, rankShifts, selectHostScreen, showsFallbackNotice } from './hostView.js';
+import {
+  canStart,
+  EMPTY_DRAFT,
+  formDraft,
+  joinUrl,
+  localEndsAt,
+  rankShifts,
+  selectHostScreen,
+  showsFallbackNotice,
+  updateDraft,
+} from './hostView.js';
 
 const SESSION = { roomCode: ROOM_CODE, hostToken: HOST_TOKEN };
 const TOP = [{ nickname: 'Tica', score: 900, delta: 900 }];
@@ -136,5 +146,23 @@ describe('showsFallbackNotice', () => {
     expect(showsFallbackNotice(withOrigin('LOBBY', 'ai'))).toBe(false);
     expect(showsFallbackNotice(withOrigin('GENERATING', null))).toBe(false);
     expect(showsFallbackNotice(null)).toBe(false);
+  });
+});
+
+describe('question language in the draft', () => {
+  it('starts as the interface language', () => {
+    expect(formDraft(EMPTY_DRAFT, 'en').language).toBe('en');
+    expect(formDraft(EMPTY_DRAFT, 'es').language).toBe('es');
+  });
+
+  it('keeps following the interface while the host edits other fields', () => {
+    const typed = updateDraft(EMPTY_DRAFT, { ...formDraft(EMPTY_DRAFT, 'en'), topic: 'Volcanes' }, 'en');
+    expect(typed.topic).toBe('Volcanes');
+    expect(formDraft(typed, 'es').language).toBe('es');
+  });
+
+  it('a language picked by hand stays, whatever the interface', () => {
+    const picked = updateDraft(EMPTY_DRAFT, { ...formDraft(EMPTY_DRAFT, 'en'), language: 'es' }, 'en');
+    expect(formDraft(picked, 'en').language).toBe('es');
   });
 });

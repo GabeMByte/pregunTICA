@@ -1,6 +1,4 @@
 import type {
-  ErrorCode,
-  ErrorPayload,
   GameEndPayload,
   LeaderboardEntry,
   LeaderboardPayload,
@@ -9,6 +7,7 @@ import type {
   QuestionStartPayload,
   RoomStatePayload,
 } from '@preguntica/shared';
+import type { GameError, GameErrorCode } from './requests.js';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
@@ -20,7 +19,7 @@ export interface BaseGameState {
   reveal: QuestionRevealPayload | null;
   leaderboard: LeaderboardEntry[] | null;
   podium: PodiumEntry[] | null;
-  error: ErrorPayload | null;
+  error: GameError | null;
 }
 
 export const initialBaseState: BaseGameState = {
@@ -41,11 +40,11 @@ export type BaseAction =
   | { type: 'question:reveal'; payload: QuestionRevealPayload }
   | { type: 'leaderboard'; payload: LeaderboardPayload }
   | { type: 'game:end'; payload: GameEndPayload }
-  | { type: 'error'; payload: ErrorPayload }
+  | { type: 'error'; payload: GameError }
   | { type: 'error:dismiss' };
 
 /** After these the stored session is useless: the room is gone or the player was removed. */
-export const SESSION_ENDING_ERRORS: readonly ErrorCode[] = ['ROOM_NOT_FOUND', 'KICKED'];
+export const SESSION_ENDING_ERRORS: readonly GameErrorCode[] = ['ROOM_NOT_FOUND', 'KICKED'];
 
 export function isBaseAction(action: { type: string }): action is BaseAction {
   return BASE_TYPES.has(action.type);

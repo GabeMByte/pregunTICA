@@ -1,4 +1,5 @@
 .page {
+  position: relative;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   justify-items: center;
@@ -7,6 +8,14 @@
   padding: var(--space-4) var(--space-5);
   /* The steps rise from below the fold; a projector must not flash a scrollbar meanwhile. */
   overflow: clip;
+}
+
+/* Out of the layout, in the corner: the page looks the same with or without it. */
+.language {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  z-index: 1;
 }
 
 .title {

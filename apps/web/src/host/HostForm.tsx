@@ -3,30 +3,21 @@ import {
   MAX_QUESTIONS,
   MIN_QUESTIONS,
   TOPIC_MAX_LENGTH,
-  TOPIC_MIN_LENGTH,
   type Difficulty,
   type Language,
 } from '@preguntica/shared';
 import { useState, type SyntheticEvent } from 'react';
 import { Link } from 'react-router';
 import { Wordmark } from '../components/Wordmark.js';
+import { LanguageSwitch } from '../i18n/LanguageSwitch.js';
+import { useT } from '../i18n/useT.js';
 import { HostButton } from './HostButton.js';
 import styles from './HostForm.module.css';
 import type { FormDraft } from './hostView.js';
 import type { CreateRoomInput } from './useHostGame.js';
 
-const DIFFICULTIES: { value: Difficulty; label: string }[] = [
-  { value: 'easy', label: 'Fácil' },
-  { value: 'medium', label: 'Media' },
-  { value: 'hard', label: 'Difícil' },
-];
-
-const LANGUAGES: { value: Language; label: string }[] = [
-  { value: 'es', label: 'Español' },
-  { value: 'en', label: 'Inglés' },
-];
-
-const TOPIC_ERROR = `Escribe un tema de ${String(TOPIC_MIN_LENGTH)} a ${String(TOPIC_MAX_LENGTH)} caracteres.`;
+const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
+const LANGUAGES: readonly Language[] = ['es', 'en'];
 
 interface ChoiceProps<T extends string> {
   legend: string;
@@ -70,8 +61,9 @@ export interface HostFormProps {
 }
 
 export function HostForm({ draft, onDraftChange, onCreate, connected, creating, error }: HostFormProps) {
+  const { t } = useT();
   const [topicInvalid, setTopicInvalid] = useState(false);
-  const shownError = topicInvalid ? TOPIC_ERROR : error;
+  const shownError = topicInvalid ? t.hostForm.topicError : error;
 
   const onSubmit = (event: SyntheticEvent) => {
     event.preventDefault();
@@ -82,23 +74,24 @@ export function HostForm({ draft, onDraftChange, onCreate, connected, creating, 
 
   return (
     <main className={styles.page}>
-      <Link to="/" className={styles.brand} aria-label="Volver al inicio">
+      <LanguageSwitch className={styles.language} />
+      <Link to="/" className={styles.brand} aria-label={t.status.home}>
         <Wordmark size="m" />
       </Link>
       <form className={styles.form} onSubmit={onSubmit} noValidate>
         <div className={styles.heading}>
-          <h1 className={styles.title}>Nueva partida</h1>
-          <p className={styles.lead}>Crea una sala y elige un tema.</p>
+          <h1 className={styles.title}>{t.hostForm.title}</h1>
+          <p className={styles.lead}>{t.hostForm.lead}</p>
         </div>
 
         <label className={styles.field}>
-          <span className={styles.label}>Tema</span>
+          <span className={styles.label}>{t.hostForm.topic}</span>
           <input
             className={styles.topic}
             type="text"
             value={draft.topic}
             maxLength={TOPIC_MAX_LENGTH}
-            placeholder="Volcanes de Costa Rica"
+            placeholder={t.hostForm.topicPlaceholder}
             autoComplete="off"
             aria-invalid={topicInvalid}
             onChange={(event) => {
@@ -110,7 +103,7 @@ export function HostForm({ draft, onDraftChange, onCreate, connected, creating, 
 
         <label className={styles.field}>
           <span className={styles.label}>
-            Preguntas: <output className={styles.count}>{draft.count}</output>
+            {t.hostForm.questions} <output className={styles.count}>{draft.count}</output>
           </span>
           <input
             className={styles.range}
@@ -126,18 +119,18 @@ export function HostForm({ draft, onDraftChange, onCreate, connected, creating, 
 
         <div className={styles.choices}>
           <Choice
-            legend="Dificultad"
+            legend={t.hostForm.difficulty}
             name="difficulty"
-            options={DIFFICULTIES}
+            options={DIFFICULTIES.map((value) => ({ value, label: t.hostForm[value] }))}
             value={draft.difficulty}
             onChange={(difficulty) => {
               onDraftChange({ ...draft, difficulty });
             }}
           />
           <Choice
-            legend="Idioma de las preguntas"
+            legend={t.hostForm.questionLanguage}
             name="language"
-            options={LANGUAGES}
+            options={LANGUAGES.map((value) => ({ value, label: t.hostForm[value] }))}
             value={draft.language}
             onChange={(language) => {
               onDraftChange({ ...draft, language });
@@ -152,7 +145,7 @@ export function HostForm({ draft, onDraftChange, onCreate, connected, creating, 
         )}
 
         <HostButton type="submit" disabled={!connected || creating}>
-          {connected ? (creating ? 'Creando…' : 'Crear sala') : 'Conectando…'}
+          {connected ? (creating ? t.hostForm.creating : t.hostForm.create) : t.status.connecting}
         </HostButton>
       </form>
     </main>

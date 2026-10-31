@@ -1,9 +1,18 @@
 .page {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-5);
   height: 100dvh;
   padding: var(--space-5);
+}
+
+/* Out of the layout, in the corner: the page looks the same with or without it. */
+.language {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  z-index: 1;
 }
 
 .join {

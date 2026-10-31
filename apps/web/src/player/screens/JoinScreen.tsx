@@ -1,8 +1,11 @@
-import { NICKNAME_MAX_LENGTH, NicknameSchema, ROOM_CODE_LENGTH, RoomCodeSchema, type ErrorPayload } from '@preguntica/shared';
+import { NICKNAME_MAX_LENGTH, NicknameSchema, ROOM_CODE_LENGTH, RoomCodeSchema } from '@preguntica/shared';
+import type { GameError } from '../../game/requests.js';
 import { useState, type SyntheticEvent } from 'react';
 import { Link } from 'react-router';
 import { Wordmark } from '../../components/Wordmark.js';
-import { joinErrorField, joinErrorMessage } from '../player-view.js';
+import { errorText } from '../../i18n/errors.js';
+import { useT } from '../../i18n/useT.js';
+import { joinErrorField } from '../player-view.js';
 import styles from './JoinScreen.module.css';
 
 const INVALID_CODE = `El código tiene ${String(ROOM_CODE_LENGTH)} letras y números.`;
@@ -11,7 +14,7 @@ const INVALID_NICKNAME = `Escribe un apodo de hasta ${String(NICKNAME_MAX_LENGTH
 export interface JoinScreenProps {
   initialRoomCode: string;
   initialNickname: string;
-  error: ErrorPayload | null;
+  error: GameError | null;
   connected: boolean;
   joining: boolean;
   onJoin: (roomCode: string, nickname: string) => void;
@@ -19,12 +22,13 @@ export interface JoinScreenProps {
 }
 
 export function JoinScreen({ initialRoomCode, initialNickname, error, connected, joining, onJoin, onDismissError }: JoinScreenProps) {
+  const { t } = useT();
   const [roomCode, setRoomCode] = useState(initialRoomCode);
   const [nickname, setNickname] = useState(initialNickname);
   const [invalid, setInvalid] = useState({ roomCode: false, nickname: false });
 
   const serverField = error === null ? null : joinErrorField(error.code);
-  const serverMessage = error === null ? null : joinErrorMessage(error);
+  const serverMessage = error === null ? null : errorText(t, error, t.joinErrors);
   const codeError = invalid.roomCode ? INVALID_CODE : serverField === 'roomCode' ? serverMessage : null;
   const nicknameError = invalid.nickname ? INVALID_NICKNAME : serverField === 'nickname' ? serverMessage : null;
   const formError = serverField === 'form' ? serverMessage : null;

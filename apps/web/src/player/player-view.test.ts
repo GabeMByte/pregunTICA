@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PLAYER_ID, QUESTION, REVEAL, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
-import { joinErrorField, joinErrorMessage, localDeadline, playerRank, playerScreen } from './player-view.js';
+import { joinErrorField, localDeadline, playerRank, playerScreen } from './player-view.js';
 import { initialPlayerState, playerReducer, type PlayerState } from './playerReducer.js';
 
 const SESSION = { roomCode: ROOM_CODE, playerId: PLAYER_ID, nickname: 'Tica' };
@@ -121,21 +121,7 @@ describe('localDeadline', () => {
   });
 });
 
-describe('joinErrorMessage', () => {
-  it.each([
-    ['NICKNAME_TAKEN', 'Ese apodo ya está en uso en esta sala. Prueba con otro.'],
-    ['ROOM_NOT_FOUND', 'No encontramos esa sala. Revisa el código.'],
-    ['ROOM_FULL', 'La sala está llena: ya tiene 50 jugadores.'],
-    ['RATE_LIMITED', 'Demasiados intentos. Espera un minuto y vuelve a probar.'],
-    ['INVALID_PHASE', 'Esta partida ya terminó.'],
-  ] as const)('%s has a clear message', (code, message) => {
-    expect(joinErrorMessage({ code, message: 'servidor' })).toBe(message);
-  });
-
-  it('anything else uses the server message', () => {
-    expect(joinErrorMessage({ code: 'INTERNAL', message: 'Ocurrió un error inesperado.' })).toBe('Ocurrió un error inesperado.');
-  });
-
+describe('joinErrorField', () => {
   it('points to the field to fix', () => {
     expect(joinErrorField('NICKNAME_TAKEN')).toBe('nickname');
     expect(joinErrorField('ROOM_NOT_FOUND')).toBe('roomCode');

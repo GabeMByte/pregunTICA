@@ -18,7 +18,20 @@ export interface FormDraft {
   language: Language;
 }
 
-export const EMPTY_DRAFT: FormDraft = { topic: '', count: 5, difficulty: 'medium', language: 'es' };
+/** The draft the page keeps: `language: null` means "the interface's", until the host picks one. */
+export type DraftState = Omit<FormDraft, 'language'> & { language: Language | null };
+
+export const EMPTY_DRAFT: DraftState = { topic: '', count: 5, difficulty: 'medium', language: null };
+
+export function formDraft(draft: DraftState, interfaceLanguage: Language): FormDraft {
+  return { ...draft, language: draft.language ?? interfaceLanguage };
+}
+
+/** The form sends back the whole draft; only a different language means the host picked one. */
+export function updateDraft(current: DraftState, next: FormDraft, interfaceLanguage: Language): DraftState {
+  const picked = next.language !== formDraft(current, interfaceLanguage).language;
+  return { ...next, language: picked ? next.language : current.language };
+}
 
 export type HostScreen =
   | { name: 'form' }
