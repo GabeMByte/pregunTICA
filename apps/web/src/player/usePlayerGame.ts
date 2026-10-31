@@ -1,6 +1,8 @@
 import { ClientEvents, ServerEvents } from '@preguntica/shared';
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { SESSION_ENDING_ERRORS } from '../game/game-state.js';
+import { createRequestTimer, NO_RESPONSE, SEND_FAILED } from '../game/requests.js';
+import { randomUuid } from '../net/random-id.js';
 import { createGameSocket, subscribe, type GameSocket } from '../net/socket.js';
 import { clearPlayerSession, readPlayerSession, savePlayerSession } from '../net/storage.js';
 import { canAnswer, initialPlayerState, playerReducer } from './playerReducer.js';
@@ -15,7 +17,10 @@ export interface UsePlayerGameOptions {
   urlRoomCode?: string;
 }
 
-const randomPlayerId = () => crypto.randomUUID();
+export { REQUEST_TIMEOUT_MS } from '../game/requests.js';
+
+// Not crypto.randomUUID: it does not exist on http://192.168.x.x (pnpm dev:lan).
+const randomPlayerId = () => randomUuid();
 
 /** All of the player view's game state (CLAUDE.md: one hook per view). */
 export function usePlayerGame({ createSocket = createGameSocket, getStorage, newPlayerId = randomPlayerId, urlRoomCode }: UsePlayerGameOptions = {}) {
@@ -25,6 +30,12 @@ export function usePlayerGame({ createSocket = createGameSocket, getStorage, new
   const joiningRoomRef = useRef<string | null>(null);
   /** Guards the emit itself: two taps can land before the re-render that disables the buttons. */
   const answeredRef = useRef<number | null>(null);
+  /** A join the server never answers must end in an error, not in "Entrando…" forever. */
+  const [joinTimer] = useState(() =>
+    createRequestTimer(() => {
+      dispatch({ type: 'error', payload: NO_RESPONSE });
+    }),
+  );
 
   useEffect(() => {
     const socket = createSocket();
@@ -40,6 +51,7 @@ export function usePlayerGame({ createSocket = createGameSocket, getStorage, new
       }
     };
     const onDisconnect = () => {
+      joinTimer.settle();
       dispatch({ type: 'connection', status: 'disconnected' });
     };
     socket.on('connect', onConnect);
@@ -47,6 +59,7 @@ export function usePlayerGame({ createSocket = createGameSocket, getStorage, new
 
     const unsubscribers = [
       subscribe(socket, ServerEvents.PlayerJoined, (payload) => {
+        joinTimer.settle();
         const roomCode = joiningRoomRef.current;
         if (roomCode === null) return;
         savePlayerSession({ roomCode, playerId: payload.playerId, nickname: payload.nickname }, getStorage);
@@ -69,6 +82,7 @@ export function usePlayerGame({ createSocket = createGameSocket, getStorage, new
         dispatch({ type: 'game:end', payload });
       }),
       subscribe(socket, ServerEvents.Error, (payload) => {
+        joinTimer.settle();
         if (SESSION_ENDING_ERRORS.includes(payload.code)) clearPlayerSession(getStorage);
         dispatch({ type: 'error', payload });
       }),
@@ -77,23 +91,34 @@ export function usePlayerGame({ createSocket = createGameSocket, getStorage, new
 
     return () => {
       for (const unsubscribe of unsubscribers) unsubscribe();
+      joinTimer.settle();
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [createSocket, getStorage, urlRoomCode]);
+  }, [createSocket, getStorage, urlRoomCode, joinTimer]);
 
   const join = useCallback(
     (roomCode: string, nickname: string) => {
-      // Same room again (e.g. after "room full"): keep the id so the server sees the same player.
-      const stored = readPlayerSession(getStorage);
-      const playerId = stored?.roomCode === roomCode ? stored.playerId : newPlayerId();
-      joiningRoomRef.current = roomCode;
-      dispatch({ type: 'joining' });
-      socketRef.current?.emit(ClientEvents.PlayerJoin, { roomCode, nickname, playerId });
+      try {
+        const socket = socketRef.current;
+        if (socket === null) throw new Error('No socket to send player:join');
+        // Same room again (e.g. after "room full"): keep the id so the server sees the same player.
+        const stored = readPlayerSession(getStorage);
+        const playerId = stored?.roomCode === roomCode ? stored.playerId : newPlayerId();
+        joiningRoomRef.current = roomCode;
+        dispatch({ type: 'joining' });
+        socket.emit(ClientEvents.PlayerJoin, { roomCode, nickname, playerId });
+        joinTimer.start();
+      } catch (error) {
+        // Shown on the join screen: a tap on "Entrar" never fails in silence.
+        console.error('Could not send player:join', error);
+        joinTimer.settle();
+        dispatch({ type: 'error', payload: SEND_FAILED });
+      }
     },
-    [getStorage, newPlayerId],
+    [getStorage, newPlayerId, joinTimer],
   );
 
   const roomCode = state.session?.roomCode;

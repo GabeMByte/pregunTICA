@@ -58,3 +58,9 @@ Registro de cada funcionalidad y de cómo se usó la IA para construirla. Alimen
 - Archivos tocados: 24, sin contar las capturas
 - Práctica de IA usada: modo plan, tests primero en la lógica, revisión visual con Playwright, dos sesiones en paralelo con git worktrees
 - Nota: leer el orden real de eventos del servidor reveló 7 huecos antes de escribir la UI (entre ellos, que un QR nuevo reconectaba a la sala vieja). Las capturas detectaron el logo invisible sobre el fondo coral. El merge con el host entró sin conflictos y una partida completa contra el servidor integrado confirmó el nuevo contrato de question:reveal.
+
+## 2026-10-30 — Pruebas en el celular por Wi-Fi (`pnpm dev:lan`) y contextos no seguros
+- Tests agregados: 21 unitarios (9 de detección de IP y QR, 5 de UUID sin `randomUUID`, 7 de errores visibles al unirse o crear sala) y 1 E2E sin APIs de contexto seguro
+- Archivos tocados: 19
+- Práctica de IA usada: test primero (E2E con init script de Playwright y `crypto` falso en jsdom, ambos confirmados en rojo con el mismo error del celular)
+- Nota: el usuario lo encontró al probar en su celular: `crypto.randomUUID()` no existe en `http://192.168.x.x` (no es contexto seguro) y "Entrar" no hacía nada. Ningún test lo vio porque todos corren en localhost, que sí es seguro. Se agregó un respaldo con `crypto.getRandomValues`; era el único uso de APIs de contexto seguro en host y jugador. Además, unirse o crear sala ya no pueden fallar en silencio: un error al enviar o 10 s sin respuesta muestran un mensaje y reactivan el botón.
