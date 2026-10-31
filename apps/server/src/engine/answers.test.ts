@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { QUESTION_TIME_MS } from '@preguntica/shared';
+import { DISCONNECT_GRACE_MS, QUESTION_TIME_MS } from '@preguntica/shared';
 import { reduce } from './game.js';
 import type { GameState } from './types.js';
 import { NOW, err, findPlayer, makeQuestions, makeStartedGame, ok, playerId } from './test-helpers.js';
@@ -83,18 +83,18 @@ describe('SPEC §3 QUESTION → REVEAL when everyone answered', () => {
     expect(state.phase).toBe('REVEAL');
   });
 
-  it('does not wait for disconnected players', () => {
+  it('does not wait for players disconnected longer than DISCONNECT_GRACE_MS', () => {
     let state = ok(reduce(game(3), { type: 'disconnect', playerId: playerId(3) }, NOW + 1));
-    state = ok(answer(state, 1, 0, NOW + 10));
+    state = ok(answer(state, 1, 0, NOW + 1 + DISCONNECT_GRACE_MS));
     expect(state.phase).toBe('QUESTION');
-    state = ok(answer(state, 2, 0, NOW + 20));
+    state = ok(answer(state, 2, 0, NOW + 2 + DISCONNECT_GRACE_MS));
     expect(state.phase).toBe('REVEAL');
   });
 
-  it('moves to REVEAL when the only pending player disconnects', () => {
+  it('stays in QUESTION when the only pending player disconnects (SPEC §3 Desconexiones)', () => {
     let state = ok(answer(game(2), 1, 0, NOW + 10));
     state = ok(reduce(state, { type: 'disconnect', playerId: playerId(2) }, NOW + 20));
-    expect(state.phase).toBe('REVEAL');
+    expect(state.phase).toBe('QUESTION');
   });
 
   it('stays in QUESTION when a player disconnects but others still have to answer', () => {
@@ -134,9 +134,10 @@ describe('SPEC §3 Puntaje: scoring applied on entering REVEAL', () => {
     });
   });
 
-  it('scores everyone when REVEAL is reached by a disconnect', () => {
+  it('scores everyone when the timer closes a question a player left', () => {
     let state = ok(answer(game(2), 1, RIGHT, NOW + 10_000));
     state = ok(reduce(state, { type: 'disconnect', playerId: playerId(2) }, NOW + 10_001));
+    state = ok(reduce(state, { type: 'timeUp' }, NOW + T));
     expect(findPlayer(state, playerId(1)).lastResult).toEqual({ correct: true, points: 750, streak: 1, totalScore: 750 });
     expect(findPlayer(state, playerId(2)).lastResult).toEqual({ correct: false, points: 0, streak: 0, totalScore: 0 });
   });

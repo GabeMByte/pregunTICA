@@ -64,3 +64,9 @@ Registro de cada funcionalidad y de cómo se usó la IA para construirla. Alimen
 - Archivos tocados: 19
 - Práctica de IA usada: test primero (E2E con init script de Playwright y `crypto` falso en jsdom, ambos confirmados en rojo con el mismo error del celular)
 - Nota: el usuario lo encontró al probar en su celular: `crypto.randomUUID()` no existe en `http://192.168.x.x` (no es contexto seguro) y "Entrar" no hacía nada. Ningún test lo vio porque todos corren en localhost, que sí es seguro. Se agregó un respaldo con `crypto.getRandomValues`; era el único uso de APIs de contexto seguro en host y jugador. Además, unirse o crear sala ya no pueden fallar en silencio: un error al enviar o 10 s sin respuesta muestran un mensaje y reactivan el botón.
+
+## 2026-10-30 — Una desconexión ya no cierra la pregunta (ventana de gracia de 5 s)
+- Tests agregados: 13 (11 del motor, 1 del registro de salas, 1 de integración con sockets reales) y 5 existentes ajustados
+- Archivos tocados: 12
+- Práctica de IA usada: TDD en engine (11 tests del motor y el de integración confirmados en rojo antes de implementar)
+- Nota: el usuario lo encontró probando con el celular: con 1 jugador, recargar a mitad de pregunta la cerraba de inmediato y la marcaba incorrecta, porque la desconexión hacía verdadero "todos los conectados respondieron". Ahora el motor guarda `disconnectedAt` con el tiempo inyectado, `disconnect` nunca revela y un jugador desconectado hace menos de `DISCONNECT_GRACE_MS` sigue contando como pendiente. Cinco tests existentes (motor y registro) afirmaban el comportamiento del bug y hubo que reescribirlos. Hubo que corregir a mano un `sed` mío que insertó el import en todo el archivo del registro (se detectó por el error de lint antes del commit). El contador del host no ve la ventana de gracia; quedó como riesgo visual en SPEC §10.

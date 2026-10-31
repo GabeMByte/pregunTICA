@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  DISCONNECT_GRACE_MS,
   QUESTION_TIME_MS,
   ROOM_CODE_ALPHABET,
   ROOM_CREATION_LIMIT,
@@ -418,13 +419,22 @@ describe('SPEC §3 QUESTION: 20 s timer', () => {
     expect(h.scheduler.active()).toHaveLength(0);
   });
 
-  it('clears the timer when REVEAL is reached by the last pending player disconnecting', async () => {
+  it('SPEC §3 Desconexiones: a disconnect keeps the question and its timer', async () => {
     const h = setup();
     const { roomCode } = await startedRoom(h, 2);
     const handle: unknown = h.scheduler.set.mock.results[0]?.value;
     ok(answer(h, roomCode, 1));
+    expect(ok(h.registry.dispatch(roomCode, { type: 'disconnect', playerId: playerId(2) })).phase).toBe('QUESTION');
     expect(h.scheduler.clear).not.toHaveBeenCalledWith(handle);
-    expect(ok(h.registry.dispatch(roomCode, { type: 'disconnect', playerId: playerId(2) })).phase).toBe('REVEAL');
+  });
+
+  it('clears the timer when an answer reveals after the grace of a disconnected player', async () => {
+    const h = setup();
+    const { roomCode } = await startedRoom(h, 2);
+    const handle: unknown = h.scheduler.set.mock.results[0]?.value;
+    ok(h.registry.dispatch(roomCode, { type: 'disconnect', playerId: playerId(2) }));
+    h.clock.now += DISCONNECT_GRACE_MS;
+    expect(ok(answer(h, roomCode, 1)).phase).toBe('REVEAL');
     expect(h.scheduler.clear).toHaveBeenCalledWith(handle);
   });
 
