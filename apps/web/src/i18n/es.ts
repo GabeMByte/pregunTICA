@@ -18,6 +18,23 @@ export const es = {
     join: 'Unirme',
     joinHint: 'Con el código de la sala, desde tu celular',
   },
+  status: {
+    connecting: 'Conectando…',
+    disconnected: 'Se perdió la conexión',
+    error: 'Algo salió mal',
+    retry: 'Reintentar',
+    home: 'Volver al inicio',
+  },
+  option: {
+    label: (letter: string, text: string) => `Opción ${letter}: ${text}`,
+    selected: 'Tu respuesta',
+    correct: 'Correcta',
+    wrong: 'Incorrecta',
+  },
+  timer: (seconds: number) => (seconds === 1 ? 'Queda 1 segundo' : `Quedan ${String(seconds)} segundos`),
+  ranking: {
+    rank: (rank: number) => `Puesto ${String(rank)}`,
+  },
 };
 
 export type Dictionary = typeof es;

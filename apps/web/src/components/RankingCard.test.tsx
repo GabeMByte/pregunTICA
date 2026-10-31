@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RankingCard } from './RankingCard.js';
+import { InLocale } from '../i18n/InLocale.js';
 
 afterEach(cleanup);
 
@@ -39,5 +40,20 @@ describe('SPEC §4 Interfaz: RankingCard', () => {
   it('other rows are not marked', () => {
     renderCard({ rank: 5, nickname: 'Otro', score: 10 });
     expect(screen.getByRole('listitem').hasAttribute('aria-current')).toBe(false);
+  });
+});
+
+describe('SPEC §4 Idioma: RankingCard in English', () => {
+  it('groups thousands with a comma and reads the place in English', () => {
+    render(
+      <InLocale locale="en">
+        <ol>
+          <RankingCard rank={2} nickname="Tica" score={12_345} delta={1_200} />
+        </ol>
+      </InLocale>,
+    );
+    expect(screen.getByText('12,345')).toBeDefined();
+    expect(screen.getByText('+1,200')).toBeDefined();
+    expect(screen.getByLabelText('Place 2').textContent).toBe('2');
   });
 });
