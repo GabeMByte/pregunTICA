@@ -1,4 +1,5 @@
 import {
+  DISCONNECT_GRACE_MS,
   MAX_PLAYERS,
   NICKNAME_MAX_LENGTH,
   NICKNAME_MIN_LENGTH,
@@ -36,7 +37,7 @@ export function reduce(state: GameState, action: GameAction, now: number): Engin
     case 'join':
       return join(state, action.playerId, action.nickname);
     case 'disconnect':
-      return disconnect(state, action.playerId);
+      return disconnect(state, action.playerId, now);
     case 'start':
       return start(state, now);
     case 'timeUp':
@@ -46,7 +47,7 @@ export function reduce(state: GameState, action: GameAction, now: number): Engin
     case 'answer':
       return answer(state, action.playerId, action.questionIndex, action.optionIndex, now);
     case 'kick':
-      return kick(state, action.nickname);
+      return kick(state, action.nickname, now);
   }
 }
 
@@ -63,7 +64,7 @@ function join(state: GameState, playerId: string, rawNickname: string): EngineRe
   const existing = state.players.find((p) => p.id === playerId);
   if (existing !== undefined) {
     // Same state object for an already connected player: a no-op the registry does not broadcast.
-    return success(existing.connected ? state : updatePlayer(state, playerId, { connected: true }));
+    return success(existing.connected ? state : updatePlayer(state, playerId, { connected: true, disconnectedAt: null }));
   }
 
   // Before the PODIUM check: a kicked player always learns why it cannot come back.
@@ -80,18 +81,20 @@ function join(state: GameState, playerId: string, rawNickname: string): EngineRe
 
   // SPEC §3 Jugadores tardíos: mid-game joiners take part from the next question.
   const eligibleFrom = state.questionIndex === null ? 0 : state.questionIndex + 1;
-  const player: Player = { id: playerId, nickname, score: 0, streak: 0, connected: true, lastResult: null, eligibleFrom };
+  const player: Player = { id: playerId, nickname, score: 0, streak: 0, connected: true, disconnectedAt: null, lastResult: null, eligibleFrom };
   return success({ ...state, players: [...state.players, player] });
 }
 
-function disconnect(state: GameState, playerId: string): EngineResult {
+function disconnect(state: GameState, playerId: string, now: number): EngineResult {
   if (!hasPlayer(state, playerId)) return failure('PLAYER_NOT_FOUND');
   // Before the game starts there is no score to keep: free the slot and the nickname, so
   // disconnected players can never fill the room. Coming back means joining as a new player.
   if (state.phase === 'GENERATING' || state.phase === 'LOBBY') {
     return success({ ...state, players: state.players.filter((p) => p.id !== playerId) });
   }
-  return success(revealIfEveryoneAnswered(updatePlayer(state, playerId, { connected: false })));
+  // SPEC §3 Desconexiones: never reveals by itself. A reload or a locked phone drops the socket for a
+  // moment; if the player does not come back, the question timer closes the question.
+  return success(updatePlayer(state, playerId, { connected: false, disconnectedAt: now }));
 }
 
 function answer(state: GameState, playerId: string, questionIndex: number, optionIndex: number, now: number): EngineResult {
@@ -110,7 +113,7 @@ function answer(state: GameState, playerId: string, questionIndex: number, optio
   if (Object.hasOwn(state.answers, playerId)) return success(state);
 
   const answers = { ...state.answers, [playerId]: { optionIndex, elapsedMs: now - state.questionStartedAt } };
-  return success(revealIfEveryoneAnswered({ ...state, answers }));
+  return success(revealIfEveryoneAnswered({ ...state, answers }, now));
 }
 
 /**
@@ -120,7 +123,7 @@ function answer(state: GameState, playerId: string, questionIndex: number, optio
  * every remaining connected eligible player already answered, the question is revealed.
  * Unknown nickname → PLAYER_NOT_FOUND; PODIUM → INVALID_PHASE.
  */
-function kick(state: GameState, nickname: string): EngineResult {
+function kick(state: GameState, nickname: string, now: number): EngineResult {
   if (state.phase === 'PODIUM') return failure('INVALID_PHASE');
   const wanted = nickname.trim().toLowerCase();
   const player = state.players.find((p) => p.nickname.toLowerCase() === wanted);
@@ -133,7 +136,7 @@ function kick(state: GameState, nickname: string): EngineResult {
       players: state.players.filter((p) => p.id !== player.id),
       answers,
       kickedIds: [...state.kickedIds, player.id],
-    }),
+    }, now),
   );
 }
 
@@ -172,13 +175,19 @@ function beginQuestion(state: GameState, questionIndex: number, now: number): Ga
   };
 }
 
-function revealIfEveryoneAnswered(state: GameState): GameState {
+function revealIfEveryoneAnswered(state: GameState, now: number): GameState {
   if (state.phase !== 'QUESTION' || state.questionIndex === null) return state;
   const questionIndex = state.questionIndex;
   const pending = state.players.some(
-    (p) => p.connected && isEligible(p, questionIndex) && !Object.hasOwn(state.answers, p.id),
+    (p) => isStillPlaying(p, now) && isEligible(p, questionIndex) && !Object.hasOwn(state.answers, p.id),
   );
   return pending ? state : reveal(state);
+}
+
+/** Connected, or gone for less than DISCONNECT_GRACE_MS: a reload must not cost the player the question. */
+function isStillPlaying(player: Player, now: number): boolean {
+  if (player.connected) return true;
+  return player.disconnectedAt !== null && now - player.disconnectedAt < DISCONNECT_GRACE_MS;
 }
 
 /** Enters REVEAL and applies SPEC §3 Puntaje to every eligible player, answered or not. */

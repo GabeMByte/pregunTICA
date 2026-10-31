@@ -1,11 +1,12 @@
 import { ServerEvents, type Phase } from '@preguntica/shared';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HOST_TOKEN, QUESTION, REVEAL, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
 import { FakeSocket } from '../net/fake-socket.js';
 import { saveHostSession } from '../net/storage.js';
 import { HostPage } from './HostPage.js';
+import { REQUEST_TIMEOUT_MS } from './useHostGame.js';
 
 const SESSION = { roomCode: ROOM_CODE, hostToken: HOST_TOKEN };
 const FAR_FUTURE = Date.now() + 15_000;
@@ -363,6 +364,50 @@ describe('connection', () => {
     receive(ServerEvents.QuestionReveal, REVEAL);
     receive(ServerEvents.Error, { code: 'INVALID_PHASE', message: 'Esa acción no está disponible.' });
     fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Cerrar' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('HostPage: a failed create is always shown', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function create() {
+    renderPage();
+    fireEvent.change(screen.getByLabelText('Tema'), { target: { value: 'Volcanes' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear sala' }));
+  }
+
+  it('a create the server never answers shows an error and can be tried again', () => {
+    vi.useFakeTimers();
+    create();
+    act(() => {
+      vi.advanceTimersByTime(REQUEST_TIMEOUT_MS);
+    });
+    expect(screen.getByRole('alert').textContent).toContain('El servidor no respondió');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Crear sala' }).disabled).toBe(false);
+  });
+
+  it('a create that cannot be sent shows an error instead of doing nothing', () => {
+    const emit = fake.emit.bind(fake);
+    fake.emit = (event: string, payload?: unknown) => {
+      if (event === 'host:create') throw new Error('socket broken');
+      return emit(event, payload);
+    };
+    create();
+    expect(screen.getByRole('alert').textContent).toContain('No se pudo enviar');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Crear sala' }).disabled).toBe(false);
+  });
+
+  it('host:created in time cancels the timeout', () => {
+    vi.useFakeTimers();
+    create();
+    receive(ServerEvents.HostCreated, SESSION);
+    receive(ServerEvents.RoomState, ROOM_STATE);
+    act(() => {
+      vi.advanceTimersByTime(REQUEST_TIMEOUT_MS * 2);
+    });
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });

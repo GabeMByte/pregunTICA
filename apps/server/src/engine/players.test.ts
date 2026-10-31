@@ -62,7 +62,7 @@ describe('SPEC §3 GENERATING/LOBBY: players can join while questions generate',
     const state = ok(join(createGame(newGame()), playerId(1), 'Ana'));
     expect(state.phase).toBe('GENERATING');
     expect(state.players).toEqual([
-      { id: playerId(1), nickname: 'Ana', score: 0, streak: 0, connected: true, lastResult: null, eligibleFrom: 0 },
+      { id: playerId(1), nickname: 'Ana', score: 0, streak: 0, connected: true, disconnectedAt: null, lastResult: null, eligibleFrom: 0 },
     ]);
   });
 

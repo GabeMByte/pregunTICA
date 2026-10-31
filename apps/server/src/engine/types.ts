@@ -7,6 +7,11 @@ export interface Player {
   score: number;
   streak: number;
   connected: boolean;
+  /**
+   * When the player last disconnected (injected time); null while connected. For DISCONNECT_GRACE_MS
+   * it still counts as pending, so a reload does not end the question (SPEC §3 Desconexiones).
+   */
+  disconnectedAt: number | null;
   /** Result of the last revealed question; null before the first reveal. */
   lastResult: AnswerResult | null;
   /** Index of the first question this player takes part in (0 unless it joined mid-game). */

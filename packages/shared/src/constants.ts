@@ -1,4 +1,9 @@
 export const QUESTION_TIME_MS = 20_000;
+/**
+ * A player disconnected for less than this still counts as pending when deciding whether everyone
+ * answered: a reload, switching apps or a locked phone must not end the question (SPEC §3).
+ */
+export const DISCONNECT_GRACE_MS = 5_000;
 export const OPTIONS_PER_QUESTION = 4;
 
 export const MIN_QUESTIONS = 5;

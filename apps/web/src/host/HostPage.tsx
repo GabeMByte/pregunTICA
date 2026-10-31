@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StatusScreen } from '../components/StatusScreen.js';
+import { shareableOrigin } from '../net/lan.js';
 import { HostWaiting } from './HostBar.js';
 import { HostForm } from './HostForm.js';
 import { errorMessage } from './hostMessages.js';
@@ -34,7 +35,7 @@ export function HostPage({ options }: { options?: UseHostGameOptions }) {
         return (
           <LobbyScreen
             room={screen.room}
-            url={joinUrl(window.location.origin, screen.room.roomCode)}
+            url={joinUrl(shareableOrigin(window.location, import.meta.env.VITE_LAN_HOST), screen.room.roomCode)}
             canStart={canStart(state)}
             onStart={advance}
             onKick={kick}

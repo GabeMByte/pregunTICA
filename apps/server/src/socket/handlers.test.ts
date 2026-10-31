@@ -382,6 +382,35 @@ describe('player reconnection', () => {
     });
   });
 
+  it('SPEC §3 Desconexiones: the only player reloading mid-question does not end it, and its answer counts', async () => {
+    const h = await startServer();
+    const { host, roomCode } = await createRoom(h);
+    const ana = await join(h, roomCode, 'Ana');
+    host.socket.emit('host:start', { roomCode });
+    await ana.player.next('question:start');
+
+    // The reload: the socket drops one second in.
+    h.clock.now = T0 + 1_000;
+    const hostSince = host.mark();
+    ana.player.socket.disconnect();
+    await vi.waitFor(() => {
+      expect(h.registry.get(roomCode)?.players.find((p) => p.id === ana.playerId)?.connected).toBe(false);
+    });
+    await settle();
+    expect(phaseOf(h, roomCode)).toBe('QUESTION');
+    expect(host.received('question:reveal', hostSince)).toHaveLength(0);
+
+    h.clock.now = T0 + 1_500;
+    const again = await join(h, roomCode, 'Ana', ana.playerId);
+    expect(QuestionStartPayloadSchema.parse(await again.player.next('question:start')).index).toBe(0);
+
+    h.clock.now = T0 + 2_000;
+    again.player.socket.emit('player:answer', { roomCode, questionIndex: 0, optionIndex: RIGHT });
+    const reveal = QuestionRevealPayloadSchema.parse(await again.player.next('question:reveal'));
+    // 2000 ms of 20000: 1000 - 2000/20000 * 500 = 950.
+    expect(reveal.yourResult).toEqual({ correct: true, points: 950, streak: 1, totalScore: 950 });
+  });
+
   it('the latest socket wins: an older socket of the same player can no longer answer', async () => {
     const h = await startServer();
     const { host, roomCode } = await createRoom(h);

@@ -37,7 +37,7 @@ GENERATING → LOBBY → QUESTION → REVEAL → LEADERBOARD ─┬→ QUESTION
 
 - **GENERATING**: la IA genera todas las preguntas al crear la sala. Los jugadores ya pueden unirse (la latencia queda oculta).
 - **LOBBY**: el host ve los jugadores conectados y pulsa "Iniciar" (solo si las preguntas están listas y hay ≥1 jugador).
-- **QUESTION**: 20 s o hasta que todos respondan.
+- **QUESTION**: 20 s o hasta que todos respondan (ver abajo quién cuenta como pendiente).
 - **REVEAL**: respuesta correcta, distribución de votos, explicación.
 - **LEADERBOARD**: top 5. El host avanza manualmente.
 - **PODIUM**: top 3 final.
@@ -45,6 +45,7 @@ GENERATING → LOBBY → QUESTION → REVEAL → LEADERBOARD ─┬→ QUESTION
 ### Jugadores tardíos y desconexiones
 - Un jugador puede unirse en QUESTION, REVEAL o LEADERBOARD (no en PODIUM). Entra con 0 puntos y participa desde la **siguiente** pregunta: si entra durante QUESTION no recibe esa pregunta, se le indica que espere, no puede responderla y no se le espera para pasar a REVEAL.
 - Antes de empezar (GENERATING o LOBBY) un jugador que se desconecta se elimina de la sala: libera su lugar y su apodo. Si vuelve, entra como jugador nuevo. Con la partida en curso se conserva con su puntaje y puede reconectarse.
+- Una desconexión por sí sola **nunca** adelanta el REVEAL: recargar la página, cambiar de app o bloquear el celular corta el socket un instante. Cuando alguien responde y hay que decidir si ya respondieron todos, un jugador desconectado hace menos de `DISCONNECT_GRACE_MS` (5 s, en shared) sigue contando como pendiente; pasado ese tiempo ya no se le espera. Si no vuelve, el temporizador de 20 s cierra la pregunta como siempre y recibe 0 puntos. El momento de la desconexión lo inyecta el servidor, como todo el tiempo en el motor.
 - Si el host se desconecta, la partida no se rompe: los timers siguen y la sala llega a REVEAL, donde espera (sin avanzar sola) hasta que el host vuelva con `host:rejoin` y pulse `host:next`.
 
 ### Puntaje
@@ -193,4 +194,5 @@ Hallazgos de la revisión de seguridad del Día 5 que no se corrigen en el MVP:
 
 - **Un cliente modificado puede reconstruir `answeredCount` contando los `room:state` idénticos que recibe en QUESTION**: los contadores solo viajan en la copia del host, pero cada respuesta sigue emitiendo un `room:state` a los jugadores. Se acepta porque solo revela cuántos respondieron, no qué eligieron ni cuál es la correcta.
 - **El host puede ver "0 de 0 respondieron" hasta 20 s** si todos los jugadores se desconectan en LEADERBOARD y avanza: la pregunta empieza sin nadie esperado. Se acepta porque es solo visual y el temporizador cierra la pregunta.
+- **El contador del host no incluye a quien está dentro de `DISCONNECT_GRACE_MS`**: `expectedAnswers` se calcula sin el reloj, así que un jugador que recarga desaparece del "de N" por un instante aunque la pregunta sí lo espera. Se acepta porque es solo visual y dura lo que tarda en reconectarse.
 - **Un cliente y un servidor de versiones distintas pierden eventos en silencio**: los esquemas estrictos descartan el payload y la pantalla se queda como estaba. Se acepta porque solo ocurre entre despliegues y las salas en memoria no sobreviven al reinicio.

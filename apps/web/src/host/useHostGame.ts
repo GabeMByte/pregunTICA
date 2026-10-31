@@ -1,9 +1,12 @@
 import { ClientEvents, ServerEvents, type ClientToServerEvents } from '@preguntica/shared';
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { createRequestTimer, NO_RESPONSE, SEND_FAILED } from '../game/requests.js';
 import { createGameSocket, subscribe, type GameSocket } from '../net/socket.js';
 import { clearHostSession, readHostSession, saveHostSession } from '../net/storage.js';
 import { HOST_SESSION_ENDING_ERRORS, hostReducer, initialHostState } from './hostReducer.js';
 import { canStart } from './hostView.js';
+
+export { REQUEST_TIMEOUT_MS } from '../game/requests.js';
 
 export type CreateRoomInput = Parameters<ClientToServerEvents[typeof ClientEvents.HostCreate]>[0];
 
@@ -21,6 +24,12 @@ export function useHostGame({ createSocket = createGameSocket, getStorage }: Use
   const rejoiningRef = useRef(false);
   /** The step the last advance was sent for: next is valid in two phases in a row, so a double press would skip one. */
   const advancedStepRef = useRef<string | null>(null);
+  /** A create the server never answers must end in an error, not in "Creando…" forever. */
+  const [createTimer] = useState(() =>
+    createRequestTimer(() => {
+      dispatch({ type: 'error', payload: NO_RESPONSE });
+    }),
+  );
 
   useEffect(() => {
     const socket = createSocket();
@@ -35,6 +44,7 @@ export function useHostGame({ createSocket = createGameSocket, getStorage }: Use
       if (session !== null) socket.emit(ClientEvents.HostRejoin, session);
     };
     const onDisconnect = (reason: string) => {
+      createTimer.settle();
       dispatch({ type: 'connection', status: 'disconnected' });
       // Socket.io retries every other reason on its own. Without this, a host whose topic was
       // rejected (the server closes the room's sockets) could not try another one.
@@ -45,6 +55,7 @@ export function useHostGame({ createSocket = createGameSocket, getStorage }: Use
 
     const unsubscribers = [
       subscribe(socket, ServerEvents.HostCreated, (payload) => {
+        createTimer.settle();
         saveHostSession(payload, getStorage);
         dispatch({ type: 'host:created', payload });
       }),
@@ -66,6 +77,7 @@ export function useHostGame({ createSocket = createGameSocket, getStorage }: Use
         dispatch({ type: 'game:end', payload });
       }),
       subscribe(socket, ServerEvents.Error, (payload) => {
+        createTimer.settle();
         advancedStepRef.current = null;
         // The server answers a rejoin with NOT_HOST for a room that no longer exists too.
         const error = payload.code === 'NOT_HOST' && rejoiningRef.current ? { ...payload, code: 'ROOM_NOT_FOUND' as const } : payload;
@@ -78,22 +90,33 @@ export function useHostGame({ createSocket = createGameSocket, getStorage }: Use
 
     return () => {
       for (const unsubscribe of unsubscribers) unsubscribe();
+      createTimer.settle();
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [createSocket, getStorage]);
+  }, [createSocket, getStorage, createTimer]);
 
   const roomCode = state.session?.roomCode;
 
   const create = useCallback(
     (input: CreateRoomInput) => {
       if (state.creating) return;
-      dispatch({ type: 'create' });
-      socketRef.current?.emit(ClientEvents.HostCreate, input);
+      try {
+        const socket = socketRef.current;
+        if (socket === null) throw new Error('No socket to send host:create');
+        dispatch({ type: 'create' });
+        socket.emit(ClientEvents.HostCreate, input);
+        createTimer.start();
+      } catch (error) {
+        // Shown on the form: a tap on "Crear sala" never fails in silence.
+        console.error('Could not send host:create', error);
+        createTimer.settle();
+        dispatch({ type: 'error', payload: SEND_FAILED });
+      }
     },
-    [state.creating],
+    [state.creating, createTimer],
   );
 
   const start = useCallback(() => {

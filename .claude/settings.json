@@ -24,7 +24,9 @@
       "Bash(*scripts/smoke*)",
       "PowerShell(*pnpm smoke*)",
       "PowerShell(*run smoke*)",
-      "PowerShell(*scripts/smoke*)"
+      "PowerShell(*scripts/smoke*)",
+      "Bash(*dev:lan*)",
+      "PowerShell(*dev:lan*)"
     ]
   },
   "hooks": {

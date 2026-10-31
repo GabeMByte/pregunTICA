@@ -107,6 +107,7 @@ export function makePlayer(n: number, overrides: Partial<Player> = {}): Player {
     score: 0,
     streak: 0,
     connected: true,
+    disconnectedAt: null,
     lastResult: null,
     eligibleFrom: 0,
     ...overrides,

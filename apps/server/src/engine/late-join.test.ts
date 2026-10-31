@@ -74,6 +74,7 @@ describe('SPEC §3 Jugadores tardíos: joining with the game in progress', () =>
       score: 0,
       streak: 0,
       connected: true,
+      disconnectedAt: null,
       lastResult: null,
       eligibleFrom: 1,
     });
@@ -201,10 +202,12 @@ describe('SPEC §3 Jugadores tardíos: the question in progress is not for the l
     expect(state.phase).toBe('REVEAL');
   });
 
-  it('does not block REVEAL when the last pending eligible player disconnects', () => {
+  it('when the last pending eligible player disconnects, the timer closes the question (SPEC §3 Desconexiones)', () => {
     let state = ok(join(game(2), LATE, NOW + 100));
     state = ok(answer(state, 1, RIGHT, NOW + 200));
     state = ok(reduce(state, { type: 'disconnect', playerId: playerId(2) }, NOW + 300));
+    expect(state.phase).toBe('QUESTION');
+    state = ok(reduce(state, { type: 'timeUp' }, NOW + QUESTION_TIME_MS));
     expect(state.phase).toBe('REVEAL');
   });
 
