@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useT } from '../i18n/useT.js';
 import styles from './HostButton.module.css';
 
 export interface HostButtonProps {
@@ -11,10 +12,11 @@ export interface HostButtonProps {
 }
 
 export function HostButton({ children, onClick, disabled = false, type = 'button', showShortcut = false }: HostButtonProps) {
+  const { t } = useT();
   return (
     <button type={type} className={styles.button} onClick={onClick} disabled={disabled}>
       {children}
-      {showShortcut && !disabled && <kbd className={styles.key}>Espacio</kbd>}
+      {showShortcut && !disabled && <kbd className={styles.key}>{t.host.shortcut}</kbd>}
     </button>
   );
 }

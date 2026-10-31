@@ -1,6 +1,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Timer } from './Timer.js';
+import { InLocale } from '../i18n/InLocale.js';
 
 const START = 1_761_600_000_000;
 let clock = START;
@@ -31,7 +32,7 @@ describe('SPEC §4 Interfaz: Timer', () => {
 
   it('rounds partial seconds up so 0 only shows when time is over', () => {
     render(<Timer endsAt={START + 400} durationMs={20_000} now={now} />);
-    expect(screen.getByRole('timer').getAttribute('aria-label')).toBe('Quedan 1 segundos');
+    expect(screen.getByRole('timer').getAttribute('aria-label')).toBe('Queda 1 segundo');
   });
 
   it('counts down as the clock moves', () => {
@@ -57,5 +58,18 @@ describe('SPEC §4 Interfaz: Timer', () => {
     const { unmount } = render(<Timer endsAt={START + 20_000} durationMs={20_000} now={now} />);
     unmount();
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('SPEC §4 Idioma: Timer in English', () => {
+  it('reads the time left in English, with the singular', () => {
+    render(
+      <InLocale locale="en">
+        <Timer endsAt={START + 20_000} durationMs={20_000} now={now} />
+      </InLocale>,
+    );
+    expect(screen.getByRole('timer', { name: '20 seconds left' })).toBeDefined();
+    advance(19_000);
+    expect(screen.getByRole('timer').getAttribute('aria-label')).toBe('1 second left');
   });
 });

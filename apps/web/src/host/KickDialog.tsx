@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useT } from '../i18n/useT.js';
 import styles from './KickDialog.module.css';
 
 export interface KickDialogProps {
@@ -8,9 +9,10 @@ export interface KickDialogProps {
 }
 
 export function KickDialog({ nickname, onConfirm, onCancel }: KickDialogProps) {
+  const { t } = useT();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
-  // A modal <dialog> traps focus, closes with Escape and starts on Cancelar, the safe choice.
+  // A modal <dialog> traps focus, closes with Escape and starts on Cancel, the safe choice.
   useEffect(() => {
     dialogRef.current?.showModal();
   }, []);
@@ -18,15 +20,15 @@ export function KickDialog({ nickname, onConfirm, onCancel }: KickDialogProps) {
   return (
     <dialog ref={dialogRef} className={styles.dialog} onCancel={onCancel} aria-labelledby="kick-title">
       <h2 id="kick-title" className={styles.title}>
-        ¿Expulsar a {nickname}?
+        {t.kick.title(nickname)}
       </h2>
-      <p className={styles.text}>Sale de la sala. Si vuelve a entrar, lo hace como jugador nuevo.</p>
+      <p className={styles.text}>{t.kick.text}</p>
       <div className={styles.actions}>
         <button type="button" className={styles.cancel} onClick={onCancel}>
-          Cancelar
+          {t.kick.cancel}
         </button>
         <button type="button" className={styles.confirm} onClick={onConfirm}>
-          Expulsar
+          {t.kick.confirm}
         </button>
       </div>
     </dialog>

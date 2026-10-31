@@ -1,4 +1,5 @@
-import { MAX_PLAYERS, type ErrorCode, type ErrorPayload, type PublicPlayer } from '@preguntica/shared';
+import type { PublicPlayer } from '@preguntica/shared';
+import type { GameErrorCode } from '../game/requests.js';
 import type { PlayerState } from './playerReducer.js';
 
 export type PlayerScreen =
@@ -63,23 +64,10 @@ export function localDeadline(endsAt: number, receivedAt: number, durationMs: nu
   return remaining > 0 && remaining <= durationMs ? endsAt : receivedAt + durationMs;
 }
 
-const JOIN_ERROR_MESSAGES: Partial<Record<ErrorCode, string>> = {
-  NICKNAME_TAKEN: 'Ese apodo ya está en uso en esta sala. Prueba con otro.',
-  ROOM_NOT_FOUND: 'No encontramos esa sala. Revisa el código.',
-  ROOM_FULL: `La sala está llena: ya tiene ${String(MAX_PLAYERS)} jugadores.`,
-  RATE_LIMITED: 'Demasiados intentos. Espera un minuto y vuelve a probar.',
-  // The only phase that refuses a new player.
-  INVALID_PHASE: 'Esta partida ya terminó.',
-};
-
-export function joinErrorMessage(error: ErrorPayload): string {
-  return JOIN_ERROR_MESSAGES[error.code] ?? error.message;
-}
-
 export type JoinField = 'roomCode' | 'nickname' | 'form';
 
 /** Where the error is shown, next to the field that has to change. */
-export function joinErrorField(code: ErrorCode): JoinField {
+export function joinErrorField(code: GameErrorCode): JoinField {
   if (code === 'NICKNAME_TAKEN') return 'nickname';
   return code === 'ROOM_NOT_FOUND' ? 'roomCode' : 'form';
 }

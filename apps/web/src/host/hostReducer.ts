@@ -1,5 +1,6 @@
-import type { ErrorCode, HostCreatedPayload } from '@preguntica/shared';
+import type { HostCreatedPayload } from '@preguntica/shared';
 import { baseReducer, initialBaseState, isBaseAction, SESSION_ENDING_ERRORS, type BaseAction, type BaseGameState } from '../game/game-state.js';
+import type { GameErrorCode } from '../game/requests.js';
 import type { HostSession } from '../net/storage.js';
 
 export interface HostState extends BaseGameState {
@@ -11,7 +12,7 @@ export interface HostState extends BaseGameState {
 export type HostAction = BaseAction | { type: 'create' } | { type: 'host:created'; payload: HostCreatedPayload };
 
 /** A rejected topic closes the room too (SPEC §6), so the host goes back to the form. */
-export const HOST_SESSION_ENDING_ERRORS: readonly ErrorCode[] = [...SESSION_ENDING_ERRORS, 'TOPIC_REJECTED'];
+export const HOST_SESSION_ENDING_ERRORS: readonly GameErrorCode[] = [...SESSION_ENDING_ERRORS, 'TOPIC_REJECTED'];
 
 export function initialHostState(session: HostSession | null): HostState {
   return { ...initialBaseState, session, creating: false };

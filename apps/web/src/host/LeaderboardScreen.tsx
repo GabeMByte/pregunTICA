@@ -1,6 +1,7 @@
 import type { LeaderboardEntry, RoomStatePayload } from '@preguntica/shared';
 import { useLayoutEffect, useRef } from 'react';
 import { RankingCard } from '../components/RankingCard.js';
+import { useT } from '../i18n/useT.js';
 import { HostBar } from './HostBar.js';
 import { HostButton } from './HostButton.js';
 import { rankShifts } from './hostView.js';
@@ -14,6 +15,7 @@ export interface LeaderboardScreenProps {
 }
 
 export function LeaderboardScreen({ room, entries, onNext, disabled }: LeaderboardScreenProps) {
+  const { t } = useT();
   const listRef = useRef<HTMLOListElement>(null);
   const isLast = room.questionIndex !== null && room.questionIndex + 1 >= room.totalQuestions;
 
@@ -28,9 +30,9 @@ export function LeaderboardScreen({ room, entries, onNext, disabled }: Leaderboa
   return (
     <main className={styles.page}>
       <HostBar room={room} />
-      <h1 className={styles.title}>Ranking</h1>
+      <h1 className={styles.title}>{t.leaderboard.title}</h1>
       {entries.length === 0 ? (
-        <p className={styles.empty}>Todavía no hay jugadores en el ranking.</p>
+        <p className={styles.empty}>{t.leaderboard.empty}</p>
       ) : (
         <ol ref={listRef} className={styles.list}>
           {entries.map((entry, index) => (
@@ -40,7 +42,7 @@ export function LeaderboardScreen({ room, entries, onNext, disabled }: Leaderboa
       )}
       <div className={styles.footer}>
         <HostButton onClick={onNext} disabled={disabled} showShortcut>
-          {isLast ? 'Ver podio' : 'Siguiente pregunta'}
+          {isLast ? t.leaderboard.podium : t.leaderboard.next}
         </HostButton>
       </div>
     </main>

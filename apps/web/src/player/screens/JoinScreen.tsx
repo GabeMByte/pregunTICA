@@ -1,17 +1,18 @@
-import { NICKNAME_MAX_LENGTH, NicknameSchema, ROOM_CODE_LENGTH, RoomCodeSchema, type ErrorPayload } from '@preguntica/shared';
+import { NICKNAME_MAX_LENGTH, NicknameSchema, ROOM_CODE_LENGTH, RoomCodeSchema } from '@preguntica/shared';
+import type { GameError } from '../../game/requests.js';
 import { useState, type SyntheticEvent } from 'react';
 import { Link } from 'react-router';
 import { Wordmark } from '../../components/Wordmark.js';
-import { joinErrorField, joinErrorMessage } from '../player-view.js';
+import { errorText } from '../../i18n/errors.js';
+import { LanguageSwitch } from '../../i18n/LanguageSwitch.js';
+import { useT } from '../../i18n/useT.js';
+import { joinErrorField } from '../player-view.js';
 import styles from './JoinScreen.module.css';
-
-const INVALID_CODE = `El código tiene ${String(ROOM_CODE_LENGTH)} letras y números.`;
-const INVALID_NICKNAME = `Escribe un apodo de hasta ${String(NICKNAME_MAX_LENGTH)} caracteres.`;
 
 export interface JoinScreenProps {
   initialRoomCode: string;
   initialNickname: string;
-  error: ErrorPayload | null;
+  error: GameError | null;
   connected: boolean;
   joining: boolean;
   onJoin: (roomCode: string, nickname: string) => void;
@@ -19,14 +20,15 @@ export interface JoinScreenProps {
 }
 
 export function JoinScreen({ initialRoomCode, initialNickname, error, connected, joining, onJoin, onDismissError }: JoinScreenProps) {
+  const { t } = useT();
   const [roomCode, setRoomCode] = useState(initialRoomCode);
   const [nickname, setNickname] = useState(initialNickname);
   const [invalid, setInvalid] = useState({ roomCode: false, nickname: false });
 
   const serverField = error === null ? null : joinErrorField(error.code);
-  const serverMessage = error === null ? null : joinErrorMessage(error);
-  const codeError = invalid.roomCode ? INVALID_CODE : serverField === 'roomCode' ? serverMessage : null;
-  const nicknameError = invalid.nickname ? INVALID_NICKNAME : serverField === 'nickname' ? serverMessage : null;
+  const serverMessage = error === null ? null : errorText(t, error, t.joinErrors);
+  const codeError = invalid.roomCode ? t.join.invalidCode : serverField === 'roomCode' ? serverMessage : null;
+  const nicknameError = invalid.nickname ? t.join.invalidNickname : serverField === 'nickname' ? serverMessage : null;
   const formError = serverField === 'form' ? serverMessage : null;
 
   const onEdit = () => {
@@ -44,18 +46,19 @@ export function JoinScreen({ initialRoomCode, initialNickname, error, connected,
 
   return (
     <main className={styles.screen}>
-      <Link to="/" className={styles.brand} aria-label="Volver al inicio">
+      <LanguageSwitch className={styles.language} />
+      <Link to="/" className={styles.brand} aria-label={t.status.home}>
         <Wordmark size="s" />
       </Link>
       <header className={styles.header}>
-        <h1 className={styles.title}>Unirme</h1>
-        <p className={styles.hint}>{initialRoomCode === '' ? 'Ingresa el código de la sala para unirte.' : 'Elige tu apodo para entrar a la sala.'}</p>
+        <h1 className={styles.title}>{t.join.title}</h1>
+        <p className={styles.hint}>{initialRoomCode === '' ? t.join.codeHint : t.join.nicknameHint}</p>
       </header>
 
       <form className={styles.form} onSubmit={onSubmit} noValidate>
         <div className={styles.field}>
           <label className={styles.label} htmlFor="join-code">
-            Código de sala
+            {t.join.roomCode}
           </label>
           <input
             id="join-code"
@@ -82,7 +85,7 @@ export function JoinScreen({ initialRoomCode, initialNickname, error, connected,
 
         <div className={styles.field}>
           <label className={styles.label} htmlFor="join-nickname">
-            Tu apodo
+            {t.join.nickname}
           </label>
           <input
             id="join-nickname"
@@ -112,7 +115,7 @@ export function JoinScreen({ initialRoomCode, initialNickname, error, connected,
         )}
 
         <button type="submit" className={styles.submit} disabled={!connected || joining}>
-          {connected ? (joining ? 'Entrando…' : 'Entrar') : 'Conectando…'}
+          {connected ? (joining ? t.join.joining : t.join.submit) : t.status.connecting}
         </button>
       </form>
     </main>

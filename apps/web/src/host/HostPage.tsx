@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { StatusScreen } from '../components/StatusScreen.js';
+import { errorText } from '../i18n/errors.js';
+import { useT } from '../i18n/useT.js';
 import { shareableOrigin } from '../net/lan.js';
 import { HostWaiting } from './HostBar.js';
 import { HostForm } from './HostForm.js';
-import { errorMessage } from './hostMessages.js';
 import { ConnectionNotice, ErrorToast } from './HostNotices.js';
-import { canStart, EMPTY_DRAFT, joinUrl, selectHostScreen, type HostScreen } from './hostView.js';
+import { canStart, EMPTY_DRAFT, formDraft, joinUrl, selectHostScreen, updateDraft, type HostScreen } from './hostView.js';
 import { LeaderboardScreen } from './LeaderboardScreen.js';
 import { LobbyScreen } from './LobbyScreen.js';
 import { PodiumScreen } from './PodiumScreen.js';
@@ -16,19 +17,24 @@ import { useHostGame, type UseHostGameOptions } from './useHostGame.js';
 
 /** The projector view: picks the screen for the phase; the game state lives in useHostGame. */
 export function HostPage({ options }: { options?: UseHostGameOptions }) {
+  const { t, locale } = useT();
   const { state, create, advance, kick, dismissError } = useHostGame(options);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   useAdvanceShortcut(advance);
 
   const connected = state.connection === 'connected';
-  const error = state.error === null ? null : errorMessage(state.error);
+  const error = state.error === null ? null : errorText(t, state.error, t.hostErrors);
 
   const render = (screen: HostScreen) => {
     switch (screen.name) {
       case 'form':
-        return <HostForm draft={draft} onDraftChange={setDraft} onCreate={create} connected={connected} creating={state.creating} error={error} />;
+        return <HostForm
+            draft={formDraft(draft, locale)}
+            onDraftChange={(next) => {
+              setDraft((current) => updateDraft(current, next, locale));
+            }} onCreate={create} connected={connected} creating={state.creating} error={error} />;
       case 'recovering':
-        return <StatusScreen kind="connecting" title="Recuperando tu sala…" />;
+        return <StatusScreen kind="connecting" title={t.host.recovering} />;
       case 'waiting':
         return <HostWaiting room={screen.room} />;
       case 'lobby':

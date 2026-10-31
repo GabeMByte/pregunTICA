@@ -1,18 +1,24 @@
-import type { ErrorPayload } from '@preguntica/shared';
+import type { ErrorCode } from '@preguntica/shared';
 
 /** The server answers host:create and player:join at once; this long without an answer means it is lost. */
 export const REQUEST_TIMEOUT_MS = 10_000;
 
-/** Client-side failures, shown like any server error so a tap never fails in silence. */
-export const SEND_FAILED: ErrorPayload = {
-  code: 'INTERNAL',
-  message: 'No se pudo enviar. Recarga la página e intenta de nuevo.',
-};
+/** Failures only the client sees: they have their own codes so the dictionaries can translate them. */
+export type ClientErrorCode = 'SEND_FAILED' | 'NO_RESPONSE';
+export type GameErrorCode = ErrorCode | ClientErrorCode;
 
-export const NO_RESPONSE: ErrorPayload = {
-  code: 'INTERNAL',
-  message: 'El servidor no respondió. Revisa tu conexión e intenta de nuevo.',
-};
+/**
+ * What the views show. The text comes from the dictionary by code (src/i18n/errors.ts); `message`
+ * is the server's text, kept only as a fallback for a code the client does not know.
+ */
+export interface GameError {
+  code: GameErrorCode;
+  message: string;
+}
+
+/** Shown like any server error so a tap never fails in silence. */
+export const SEND_FAILED: GameError = { code: 'SEND_FAILED', message: 'SEND_FAILED' };
+export const NO_RESPONSE: GameError = { code: 'NO_RESPONSE', message: 'NO_RESPONSE' };
 
 /** One pending request at a time: start() replaces the previous one, settle() cancels it. */
 export function createRequestTimer(onTimeout: () => void, timeoutMs = REQUEST_TIMEOUT_MS) {

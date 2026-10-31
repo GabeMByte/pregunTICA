@@ -8,6 +8,14 @@
   overflow: hidden;
 }
 
+/* Above the floating shapes, clear of the flag ribbon. */
+.language {
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline-end: var(--space-3);
+  z-index: 1;
+}
+
 .hero {
   display: grid;
   gap: var(--space-3);

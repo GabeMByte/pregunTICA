@@ -3,20 +3,23 @@ import { fileURLToPath } from 'node:url';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
 const OUT_DIR = fileURLToPath(new URL('../../docs/screenshots/player/', import.meta.url));
+/** English stills of the main screens (SPEC §4 Idioma); Spanish keeps the paths it always had. */
+const EN_DIR = fileURLToPath(new URL('../../docs/screenshots/en/player/', import.meta.url));
 const PHONE = { width: 375, height: 812 };
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
 
 mkdirSync(OUT_DIR, { recursive: true });
+mkdirSync(EN_DIR, { recursive: true });
 
-async function shot(page: Page, name: string) {
+async function shot(page: Page, name: string, dir = OUT_DIR) {
   await page.evaluate(() => document.fonts.ready);
-  await page.screenshot({ path: `${OUT_DIR}${name}.png` });
+  await page.screenshot({ path: `${dir}${name}.png` });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow, `${name} scrolls sideways`).toBeLessThanOrEqual(0);
 }
 
-async function phone(browser: Browser, path = '/play', prepare?: (page: Page) => Promise<void>) {
-  const context = await browser.newContext({ viewport: PHONE, reducedMotion: 'reduce', hasTouch: true, isMobile: true });
+async function phone(browser: Browser, path = '/play', prepare?: (page: Page) => Promise<void>, locale = 'es-CR') {
+  const context = await browser.newContext({ viewport: PHONE, reducedMotion: 'reduce', hasTouch: true, isMobile: true, locale });
   const page = await context.newPage();
   await prepare?.(page);
   await page.goto(path);
@@ -40,12 +43,12 @@ let hostCount = 0;
 class Host {
   private constructor(private readonly page: Page) {}
 
-  static async create(browser: Browser): Promise<{ host: Host; roomCode: string }> {
+  static async create(browser: Browser, language: 'es' | 'en' = 'es'): Promise<{ host: Host; roomCode: string }> {
     hostCount += 1;
     const context = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-For': `10.0.0.${String(hostCount)}` } });
     const page = await context.newPage();
     await page.goto('/');
-    const roomCode = await page.evaluate(async () => {
+    const roomCode = await page.evaluate(async (questionLanguage) => {
       // Served by Vite, so the e2e package needs no socket.io-client of its own.
       const SOCKET_MODULE = '/src/net/socket.ts';
       const { createGameSocket } = (await import(SOCKET_MODULE)) as { createGameSocket: () => BrowserSocket };
@@ -61,9 +64,9 @@ class Host {
         });
       });
       hostWindow.host.connect();
-      hostWindow.host.emit('host:create', { topic: 'Volcanes de Costa Rica', count: 5, difficulty: 'easy', language: 'es' });
+      hostWindow.host.emit('host:create', { topic: 'Volcanes de Costa Rica', count: 5, difficulty: 'easy', language: questionLanguage });
       return created;
-    });
+    }, language);
     return { host: new Host(page), roomCode };
   }
 
@@ -327,4 +330,58 @@ test('reduced motion turns the screen animations off', async ({ browser }) => {
   await expect.poll(running).toBe(0);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await expect.poll(running).toBeGreaterThan(0);
+});
+
+test('a full game in English', async ({ browser }) => {
+  const { host, roomCode } = await Host.create(browser, 'en');
+  const english = (path: string) => phone(browser, path, undefined, 'en-US');
+  const enShot = (page: Page, name: string) => shot(page, name, EN_DIR);
+  const enOption = (page: Page, letter: string) => page.getByRole('button', { name: new RegExp(`^Option ${letter}:`) });
+  const enJoin = async (page: Page, nickname: string) => {
+    await page.getByLabel('Your nickname').fill(nickname);
+    await page.getByRole('button', { name: 'Enter' }).click();
+    await expect(page.getByRole('heading', { name: "You're in" }).or(page.getByRole('alert'))).toBeVisible();
+  };
+
+  const empty = await english('/play');
+  await expect(empty.getByRole('button', { name: 'Enter' })).toBeEnabled();
+  await enShot(empty, 'join-empty');
+
+  const players = ['Pura Vida', 'Mae Tuanis', 'La Chinita', 'Yo mero'];
+  const phones = await Promise.all(players.map(() => english(`/play/${roomCode}`)));
+  await Promise.all(phones.map((page, i) => enJoin(page, players[i] ?? '')));
+  const [first, ...rest] = phones;
+  if (first === undefined) throw new Error('No phones');
+  await enShot(first, 'lobby');
+
+  const taken = await english(`/play/${roomCode}`);
+  await enJoin(taken, 'pura vida');
+  await expect(taken.getByRole('alert')).toHaveText('That nickname is already taken in this room. Try another one.');
+  await enShot(taken, 'join-nickname-taken');
+
+  await startGame(host, roomCode, first);
+  await expect(first.getByText('Question 1 of 5')).toBeVisible();
+  await enShot(first, 'question');
+  await enOption(first, 'A').click();
+  await expect(first.getByRole('status')).toHaveText('Answer sent');
+  await enShot(first, 'answered');
+
+  await Promise.all(rest.map((page, i) => enOption(page, OPTION_LETTERS[i + 1] ?? 'A').click()));
+  await enShot(await phoneShowing(phones, 'Correct!'), 'reveal-correct');
+  await enShot(await phoneShowing(phones, 'Wrong'), 'reveal-wrong');
+
+  for (const round of [1, 2, 3, 4, 5]) {
+    if (round > 1) {
+      await expect(first.getByText(`Question ${String(round)} of 5`)).toBeVisible();
+      await Promise.all(phones.map((page, i) => enOption(page, OPTION_LETTERS[(i + round) % OPTION_LETTERS.length] ?? 'A').click()));
+    }
+    await expect(first.getByText(/You're in place/)).toBeVisible();
+    await host.send('host:next', { roomCode });
+    await expect(first.getByRole('heading', { name: 'Your standing' })).toBeVisible();
+    if (round === 1) await enShot(first, 'leaderboard');
+    await host.send('host:next', { roomCode });
+  }
+
+  await enShot(await phoneShowing(phones, 'You won!'), 'podium-winner');
+  await enShot(await phoneShowing(phones, 'You finished'), 'podium');
 });

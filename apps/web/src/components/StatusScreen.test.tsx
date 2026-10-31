@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StatusScreen, type StatusScreenProps } from './StatusScreen.js';
+import { InLocale } from '../i18n/InLocale.js';
 
 afterEach(cleanup);
 
@@ -49,5 +50,20 @@ describe('SPEC §4 Interfaz: StatusScreen', () => {
     renderScreen({ kind: 'connecting' });
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.queryByRole('link', { name: 'Volver al inicio' })).toBeNull();
+  });
+});
+
+describe('SPEC §4 Idioma: StatusScreen in English', () => {
+  it('default titles and actions are in English', () => {
+    render(
+      <InLocale locale="en">
+        <MemoryRouter>
+          <StatusScreen kind="disconnected" onRetry={vi.fn()} showHome />
+        </MemoryRouter>
+      </InLocale>,
+    );
+    expect(screen.getByRole('alert').textContent).toContain('Connection lost');
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Back to home' })).toBeDefined();
   });
 });

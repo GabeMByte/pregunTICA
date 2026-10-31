@@ -4,6 +4,8 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HOST_TOKEN, QUESTION, REVEAL, ROOM_CODE, ROOM_STATE } from '../game/fixtures.js';
 import { FakeSocket } from '../net/fake-socket.js';
+import { I18nProvider } from '../i18n/I18nProvider.js';
+import { LOCALE_KEY, type Locale } from '../i18n/locale.js';
 import { saveHostSession } from '../net/storage.js';
 import { HostPage } from './HostPage.js';
 import { REQUEST_TIMEOUT_MS } from './useHostGame.js';
@@ -20,6 +22,20 @@ function renderPage() {
     </MemoryRouter>,
   );
 }
+
+/** The real provider, as in the app: the interface starts in `locale` and the switch works. */
+function renderInLanguage(locale: Locale) {
+  localStorage.setItem(LOCALE_KEY, locale);
+  return render(
+    <I18nProvider>
+      <MemoryRouter>
+        <HostPage options={options} />
+      </MemoryRouter>
+    </I18nProvider>,
+  );
+}
+
+const languageSwitch = () => screen.queryByRole('group', { name: /^(Idioma|Language)$/ });
 
 /** A host back in its room, in the given phase. */
 function inPhase(phase: Phase, overrides: Partial<typeof ROOM_STATE> = {}) {
@@ -409,5 +425,98 @@ describe('HostPage: a failed create is always shown', () => {
       vi.advanceTimersByTime(REQUEST_TIMEOUT_MS * 2);
     });
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('HostPage in English', () => {
+  it('the form, the lobby and the errors follow the interface language', () => {
+    renderInLanguage('en');
+    expect(screen.getByRole('heading', { name: 'New game' })).toBeDefined();
+    fireEvent.change(screen.getByLabelText('Topic'), { target: { value: 'Volcanoes' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create room' }));
+    receive(ServerEvents.Error, { code: 'RATE_LIMITED', message: 'Demasiados intentos.' });
+    expect(screen.getByRole('alert').textContent).toBe('You created too many rooms in a short time. Wait a few minutes and try again.');
+
+    receive(ServerEvents.HostCreated, SESSION);
+    receive(ServerEvents.RoomState, ROOM_STATE);
+    expect(screen.getByRole('button', { name: /^Start/ })).toBeDefined();
+    expect(screen.getByRole('heading', { name: `Players: ${String(ROOM_STATE.players.length)}` })).toBeDefined();
+  });
+});
+
+describe('question language', () => {
+  const createdWith = () => (emitted('host:create')[0]?.payload as { language: string } | undefined)?.language;
+  const create = (topicLabel: string, button: string) => {
+    fireEvent.change(screen.getByLabelText(topicLabel), { target: { value: 'Volcanes' } });
+    fireEvent.click(screen.getByRole('button', { name: button }));
+  };
+
+  it('starts as the interface language', () => {
+    renderInLanguage('en');
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: 'English' }).checked).toBe(true);
+    create('Topic', 'Create room');
+    expect(createdWith()).toBe('en');
+  });
+
+  it('follows the interface while the host has not picked one', () => {
+    renderInLanguage('en');
+    fireEvent.change(screen.getByLabelText('Topic'), { target: { value: 'Volcanes' } });
+    fireEvent.click(screen.getByRole('button', { name: 'ES' }));
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: 'Español' }).checked).toBe(true);
+    create('Tema', 'Crear sala');
+    expect(createdWith()).toBe('es');
+  });
+
+  it('a language picked by hand stays when the interface changes', () => {
+    renderInLanguage('es');
+    fireEvent.click(screen.getByRole('radio', { name: 'Inglés' }));
+    fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: 'English' }).checked).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'ES' }));
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: 'Inglés' }).checked).toBe(true);
+    create('Tema', 'Crear sala');
+    expect(createdWith()).toBe('en');
+  });
+});
+
+describe('language switch', () => {
+  it('is on the form', () => {
+    renderPage();
+    expect(languageSwitch()).not.toBeNull();
+  });
+
+  it.each(['GENERATING', 'LOBBY'] as const)('is in the lobby (%s)', (phase) => {
+    inPhase(phase);
+    expect(languageSwitch()).not.toBeNull();
+  });
+
+  it('is on the podium', () => {
+    inPhase('PODIUM');
+    receive(ServerEvents.GameEnd, { podium: [{ rank: 1, nickname: 'Tica', score: 900 }] });
+    expect(screen.getByRole('heading', { name: '¡Podio final!' })).toBeDefined();
+    expect(languageSwitch()).not.toBeNull();
+  });
+
+  it('is hidden during the question, the reveal and the leaderboard', () => {
+    inPhase('QUESTION');
+    receive(ServerEvents.QuestionStart, { ...QUESTION, endsAt: FAR_FUTURE });
+    expect(screen.getByRole('heading', { name: QUESTION.prompt })).toBeDefined();
+    expect(languageSwitch()).toBeNull();
+
+    receive(ServerEvents.RoomState, { ...ROOM_STATE, phase: 'REVEAL', questionIndex: 0 });
+    receive(ServerEvents.QuestionReveal, REVEAL);
+    expect(screen.getByRole('button', { name: /^Siguiente/ })).toBeDefined();
+    expect(languageSwitch()).toBeNull();
+
+    receive(ServerEvents.RoomState, { ...ROOM_STATE, phase: 'LEADERBOARD', questionIndex: 0 });
+    receive(ServerEvents.Leaderboard, { top: [{ nickname: 'Tica', score: 900, delta: 900 }] });
+    expect(screen.getByRole('heading', { name: 'Ranking' })).toBeDefined();
+    expect(languageSwitch()).toBeNull();
+  });
+
+  it('is hidden while the room is recovering', () => {
+    saveHostSession(SESSION);
+    renderPage();
+    expect(languageSwitch()).toBeNull();
   });
 });

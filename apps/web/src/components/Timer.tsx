@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useT } from '../i18n/useT.js';
 import styles from './Timer.module.css';
 
 /** At or below this many seconds the timer turns urgent. */
@@ -19,6 +20,7 @@ export interface TimerProps {
 
 /** Give it a `key` per question so a new question starts from a fresh clock reading. */
 export function Timer({ endsAt, durationMs, now = Date.now, size = 'phone' }: TimerProps) {
+  const { t } = useT();
   const [current, setCurrent] = useState(now);
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export function Timer({ endsAt, durationMs, now = Date.now, size = 'phone' }: Ti
     <div
       className={[styles.timer, styles[size], urgent ? styles.urgent : ''].join(' ')}
       role="timer"
-      aria-label={`Quedan ${String(seconds)} segundos`}
+      aria-label={t.timer(seconds)}
       data-urgent={urgent}
     >
       <svg viewBox="0 0 100 100" aria-hidden="true" className={styles.ring}>

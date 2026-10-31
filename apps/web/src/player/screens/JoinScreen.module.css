@@ -1,10 +1,19 @@
 .screen {
+  position: relative;
   display: grid;
   align-content: center;
   justify-items: center;
   gap: var(--space-4);
   min-height: 100dvh;
   padding: var(--space-5) var(--space-3);
+}
+
+/* Out of the layout, in the corner: the screen looks the same with or without it. */
+.language {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  z-index: 1;
 }
 
 .brand {

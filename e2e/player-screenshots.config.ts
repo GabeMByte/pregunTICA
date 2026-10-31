@@ -14,6 +14,8 @@ export default defineConfig({
   timeout: 90_000,
   use: {
     baseURL: `http://localhost:${String(WEB_PORT)}`,
+    // The interface follows the browser's language (SPEC §4 Idioma): the script reads Spanish.
+    locale: 'es-CR',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [

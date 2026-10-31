@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { OptionButton } from '../../components/OptionButton.js';
 import { Timer } from '../../components/Timer.js';
 import { localDeadline } from '../player-view.js';
+import { useT } from '../../i18n/useT.js';
 import styles from './QuestionScreen.module.css';
 
 export interface QuestionScreenProps {
@@ -14,15 +15,14 @@ export interface QuestionScreenProps {
 
 /** Give it a `key` per question: the deadline is read once, when the question arrives. */
 export function QuestionScreen({ question, selectedOption, onAnswer }: QuestionScreenProps) {
+  const { t } = useT();
   const [deadline] = useState(() => localDeadline(question.endsAt, Date.now(), QUESTION_TIME_MS));
   const answered = selectedOption !== null;
 
   return (
     <main className={styles.screen}>
       <header className={styles.header}>
-        <p className={styles.progress}>
-          Pregunta {question.index + 1} de {question.total}
-        </p>
+        <p className={styles.progress}>{t.progress(question.index + 1, question.total)}</p>
         <Timer key={question.index} endsAt={deadline} durationMs={QUESTION_TIME_MS} />
       </header>
       <h1 className={styles.prompt}>{question.prompt}</h1>
@@ -39,7 +39,7 @@ export function QuestionScreen({ question, selectedOption, onAnswer }: QuestionS
         ))}
       </div>
       <p className={styles.status} role="status" data-answered={answered}>
-        {answered ? 'Respuesta enviada' : 'Elige una respuesta'}
+        {answered ? t.playerQuestion.sent : t.playerQuestion.choose}
       </p>
     </main>
   );

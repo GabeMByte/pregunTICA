@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OptionButton } from './OptionButton.js';
+import { InLocale } from '../i18n/InLocale.js';
 
 afterEach(cleanup);
 
@@ -54,5 +55,17 @@ describe('SPEC §4 Interfaz: OptionButton', () => {
   it('rejects an index outside 0–3', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => render(<OptionButton index={4} text="x" />)).toThrow(/out of range/);
+  });
+});
+
+describe('SPEC §4 Idioma: OptionButton in English', () => {
+  it('names the option and its state in English', () => {
+    render(
+      <InLocale locale="en">
+        <OptionButton index={1} text="Lima" state="correct" />
+      </InLocale>,
+    );
+    expect(screen.getByRole('group', { name: 'Option B: Lima (Correct)' })).toBeDefined();
+    expect(screen.getByText('Correct')).toBeDefined();
   });
 });

@@ -1,15 +1,10 @@
+import { useT } from '../i18n/useT.js';
 import { OPTION_LETTERS, OPTION_SHAPES } from './option-shapes.js';
 import { OptionShape } from './OptionShape.js';
 import styles from './OptionButton.module.css';
 
 /** idle: can be chosen; selected: the player's pick; correct/wrong: after REVEAL; dimmed: not relevant any more. */
 export type OptionState = 'idle' | 'selected' | 'correct' | 'wrong' | 'dimmed';
-
-const STATE_LABELS: Partial<Record<OptionState, string>> = {
-  selected: 'Tu respuesta',
-  correct: 'Correcta',
-  wrong: 'Incorrecta',
-};
 
 export interface OptionButtonProps {
   /** 0–3: picks the color, shape and letter (SPEC §4 Interfaz). */
@@ -23,11 +18,12 @@ export interface OptionButtonProps {
 }
 
 export function OptionButton({ index, text, state = 'idle', onSelect, disabled = false, size = 'phone' }: OptionButtonProps) {
+  const { t } = useT();
   const shape = OPTION_SHAPES[index];
   const letter = OPTION_LETTERS[index];
   if (shape === undefined || letter === undefined) throw new Error(`Option index out of range: ${String(index)}`);
 
-  const stateLabel = STATE_LABELS[state];
+  const stateLabel = state === 'selected' || state === 'correct' || state === 'wrong' ? t.option[state] : undefined;
   const className = [styles.option, styles[shape], styles[state], styles[size]].join(' ');
   const content = (
     <>
@@ -39,7 +35,7 @@ export function OptionButton({ index, text, state = 'idle', onSelect, disabled =
       {stateLabel !== undefined && <span className={styles.status}>{stateLabel}</span>}
     </>
   );
-  const label = `Opción ${letter}: ${text}${stateLabel === undefined ? '' : ` (${stateLabel})`}`;
+  const label = `${t.option.label(letter, text)}${stateLabel === undefined ? '' : ` (${stateLabel})`}`;
 
   if (onSelect === undefined) {
     return (
