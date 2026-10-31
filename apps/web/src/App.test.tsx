@@ -1,9 +1,18 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { App } from './App.js';
+import { LOCALE_KEY } from './i18n/locale.js';
 
-afterEach(cleanup);
+// jsdom reports an English device; these tests read the Spanish texts.
+beforeEach(() => {
+  localStorage.setItem(LOCALE_KEY, 'es');
+});
+
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 
 function renderAt(path: string) {
   return render(
@@ -43,5 +52,14 @@ describe('SPEC §4 Interfaz: routes', () => {
   it('an unknown route goes back home', () => {
     renderAt('/nada');
     expect(screen.getByRole('link', { name: /Crear partida/ })).toBeDefined();
+  });
+});
+
+describe('SPEC §4 Idioma: the whole app follows the interface language', () => {
+  it('an English device gets the English home', () => {
+    localStorage.clear();
+    renderAt('/');
+    expect(screen.getByRole('link', { name: /Create a game/ }).getAttribute('href')).toBe('/host');
+    expect(screen.getByRole('link', { name: /Join/ }).getAttribute('href')).toBe('/play');
   });
 });
