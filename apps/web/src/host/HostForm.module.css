@@ -150,6 +150,11 @@
 }
 
 @media (max-width: 40rem) {
+  .page {
+    /* A strip of its own for the language switch, clear of the wordmark. */
+    padding-block-start: 4.5rem;
+  }
+
   .choices {
     grid-template-columns: 1fr;
   }

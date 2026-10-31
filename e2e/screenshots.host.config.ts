@@ -20,8 +20,9 @@ export default defineConfig({
     {
       command: 'pnpm --filter @preguntica/server dev',
       cwd: '..',
-      // CLAUDE.md rule 7: never the real API. A blank key means "local bank only".
-      env: { PORT: String(SERVER_PORT), ANTHROPIC_API_KEY: '', WARM_TOPICS: '' },
+      // CLAUDE.md rule 7: never the real API. A blank key means "local bank only". TRUST_PROXY lets
+      // each game use its own address: there are more games than the per-IP room limit allows.
+      env: { PORT: String(SERVER_PORT), ANTHROPIC_API_KEY: '', WARM_TOPICS: '', TRUST_PROXY: 'true' },
       url: `http://localhost:${String(SERVER_PORT)}/health`,
       reuseExistingServer: false,
       timeout: 60_000,

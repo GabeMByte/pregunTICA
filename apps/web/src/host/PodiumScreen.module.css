@@ -127,6 +127,8 @@
     height: auto;
     min-height: 100dvh;
     padding: var(--space-4) var(--space-3);
+    /* A strip of its own for the language switch, clear of the wordmark. */
+    padding-block-start: 4.5rem;
   }
 
   .place {
