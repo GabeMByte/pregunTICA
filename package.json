@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "pnpm --parallel --filter @preguntica/server --filter @preguntica/web dev",
+    "dev:lan": "pnpm --parallel --filter @preguntica/server --filter @preguntica/web dev:lan",
     "test": "pnpm -r --filter !@preguntica/e2e test",
     "test:e2e": "pnpm --filter @preguntica/e2e test",
     "lint": "eslint . --max-warnings=0",

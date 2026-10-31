@@ -7,6 +7,7 @@ Trivia multijugador en tiempo real con preguntas generadas por IA. La especifica
 ```bash
 pnpm install            # instalar dependencias
 pnpm dev                # server (3000) + web (5173) en paralelo
+pnpm dev:lan            # igual, pero web escucha en la red local para probar con el celular (solo el usuario, carga la clave)
 pnpm test               # unitarias (Vitest) de todos los paquetes
 pnpm test:e2e           # Playwright multijugador
 pnpm lint               # ESLint
@@ -33,7 +34,7 @@ pnpm smoke --topic "…" [--language en]  # sala real contra pnpm dev (solo el u
 4. **TDD en `engine/` y `ai/`**: escribe el test, confirma que falla, luego implementa.
 5. Los eventos y tipos nuevos se definen primero en `packages/shared`.
 6. Nunca commitear `.env` ni claves. La clave va en `ANTHROPIC_API_KEY`.
-7. **Nunca llamar a la API real de Anthropic**: los tests usan un cliente falso y `pnpm eval:questions` y `pnpm smoke` los corre solo el usuario (está bloqueado en `.claude/settings.json`). Ojo: `pnpm dev`, `start` y los scripts cargan el `.env` de la raíz con `--env-file-if-exists`, así que quitar la variable del entorno no basta.
+7. **Nunca llamar a la API real de Anthropic**: los tests usan un cliente falso y `pnpm eval:questions`, `pnpm smoke` y `pnpm dev:lan` los corre solo el usuario (está bloqueado en `.claude/settings.json`). Ojo: `pnpm dev`, `start` y los scripts cargan el `.env` de la raíz con `--env-file-if-exists`, así que quitar la variable del entorno no basta.
 
 ## Convenciones
 
