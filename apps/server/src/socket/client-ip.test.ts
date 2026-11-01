@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getClientIp, rateLimitKey } from './client-ip.js';
+import { describeClientAddress, getClientIp, rateLimitKey } from './client-ip.js';
 
 const SOCKET_IP = '10.0.0.5';
 
@@ -58,5 +58,30 @@ describe('security review M3: rate limit key', () => {
 
   it('anything that is not an IP is kept as is', () => {
     expect(rateLimitKey('unknown')).toBe('unknown');
+  });
+});
+
+describe('the proxy log line (TRUST_PROXY): which hop the rate limiter takes', () => {
+  it('names the key, the IP and the whole X-Forwarded-For', () => {
+    expect(describeClientAddress(handshake('6.6.6.6, 203.0.113.9'))).toBe(
+      'Client address: rate-limit key 203.0.113.9 (ip 203.0.113.9), X-Forwarded-For: 6.6.6.6, 203.0.113.9',
+    );
+  });
+
+  it('shows an IPv6 client by its /64 key', () => {
+    expect(describeClientAddress(handshake('2001:db8:1:2:3:4:5:6'))).toBe(
+      'Client address: rate-limit key 2001:db8:1:2::/64 (ip 2001:db8:1:2:3:4:5:6), X-Forwarded-For: 2001:db8:1:2:3:4:5:6',
+    );
+  });
+
+  it('says when there is no header (then the socket address is used)', () => {
+    expect(describeClientAddress(handshake())).toBe(`Client address: rate-limit key ${SOCKET_IP} (ip ${SOCKET_IP}), X-Forwarded-For: (none)`);
+  });
+
+  it('the header comes from the client: no line breaks or control characters reach the log, and it is cut short', () => {
+    const line = describeClientAddress(handshake(`1.1.1.1\nFake log line\u001b[31m, ${'9'.repeat(500)}`));
+    // eslint-disable-next-line no-control-regex -- it looks for control characters on purpose.
+    expect(line).not.toMatch(/[\u0000-\u001f\u007f]/);
+    expect(line.length).toBeLessThan(700);
   });
 });

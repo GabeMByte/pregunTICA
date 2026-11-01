@@ -7,7 +7,7 @@ import { LocalQuestionSource, loadFallbackBanks } from './ai/local-question-sour
 import { describeError } from './ai/safe-log.js';
 import { ShuffledQuestionSource } from './ai/shuffled-question-source.js';
 import { createApp, realScheduler, secureRandom } from './app.js';
-import { readAiConfig } from './config.js';
+import { readAiConfig, readServerConfig } from './config.js';
 import type { QuestionSource } from './rooms/question-source.js';
 import { evictRooms } from './socket/handlers.js';
 
@@ -15,6 +15,7 @@ const SWEEP_INTERVAL_MS = 60_000;
 
 const port = Number(process.env.PORT ?? 3000);
 const ai = readAiConfig(process.env);
+const server = readServerConfig(process.env);
 const local = new LocalQuestionSource(loadFallbackBanks(), secureRandom);
 
 // SPEC §6: Shuffled(Cached(Limited(Fallback(Claude, Local)))). Without a key, only the local bank.
@@ -55,7 +56,8 @@ if (ai.apiKey === undefined) {
   console.log(`Questions from ${ai.model} (effort ${ai.effort})`);
 }
 
-const { httpServer, io, registry } = createApp({ trustProxy: process.env.TRUST_PROXY === 'true', questionSource });
+const { httpServer, io, registry } = createApp({ ...server, questionSource });
+if (server.publicOrigin === undefined) console.warn('PUBLIC_ORIGIN is not set: sockets accept any origin (development only)');
 
 // Removes rooms idle for longer than ROOM_IDLE_TTL_MS and disconnects their sockets.
 setInterval(() => {

@@ -103,6 +103,13 @@ pregunTICA/
 - **Validación en las fronteras**: todo evento entrante y toda respuesta de la IA se valida con Zod.
 - **Estado en memoria**: sin base de datos.
 
+### Despliegue
+- **Una imagen Docker** (`Dockerfile` multi-etapa): instala con pnpm, compila web y servidor (`shared` se empaqueta en ambos) y en la imagen final un solo proceso Node sirve `/health`, Socket.io y el build de la web en el mismo `PORT`. Las rutas de React responden `index.html`; los archivos de `/assets/` llevan hash y se cachean para siempre, `index.html` se revalida. La imagen nunca lee un `.env`.
+- **Una sola instancia**: las salas viven en memoria; con varias réplicas un host y sus jugadores podrían quedar en procesos distintos.
+- **Origen**: con `PUBLIC_ORIGIN` el handshake de Socket.io rechaza cualquier otro `Origin` (un upgrade WebSocket no pasa por CORS) y CORS de polling solo lo permite a él. En producción el servidor no arranca sin `PUBLIC_ORIGIN`; en desarrollo se acepta cualquier origen.
+- **Proxy**: con `TRUST_PROXY=true` la IP del límite de salas es el último valor de `X-Forwarded-For`, y cada conexión registra una línea con esa IP, su clave y el header completo para verificarlo en producción (sin otros datos, sin caracteres de control).
+- Pasos para Render (principal), Koyeb y Azure App Service, y la lista de variables, en `docs/DEPLOY.md`.
+
 ## 5. Eventos Socket.io
 
 | Dirección | Evento | Payload |
@@ -184,7 +191,6 @@ Hallazgos de la revisión de seguridad del Día 3 que no se corrigen en el MVP:
 - **El `playerId` funciona como contraseña de reconexión**: quien lo conozca puede tomar esa identidad. Nunca se envía a otros clientes; solo se filtraría desde el propio dispositivo.
 - **Un socket host anterior conserva el control tras `host:rejoin`**: requiere haber tenido el `hostToken`, que solo recibe el host.
 - **Los jugadores pueden ver cuántos han respondido y cuándo** (`room:state` en QUESTION): no revela qué opción eligieron ni la respuesta correcta, y el host lo muestra de todos modos.
-- **No se valida el `Origin` de las conexiones**: no hay cookies ni sesiones que robar. Se resuelve en el despliegue limitando CORS al dominio propio.
 
 Hallazgos de la revisión de seguridad del Día 4 que no se corrigen en el MVP:
 
@@ -204,3 +210,9 @@ Hallazgos de la revisión de seguridad del Día 5 que no se corrigen en el MVP:
 - **El host puede ver "0 de 0 respondieron" hasta 20 s** si todos los jugadores se desconectan en LEADERBOARD y avanza: la pregunta empieza sin nadie esperado. Se acepta porque es solo visual y el temporizador cierra la pregunta.
 - **El contador del host no incluye a quien está dentro de `DISCONNECT_GRACE_MS`**: `expectedAnswers` se calcula sin el reloj, así que un jugador que recarga desaparece del "de N" por un instante aunque la pregunta sí lo espera. Se acepta porque es solo visual y dura lo que tarda en reconectarse.
 - **Un cliente y un servidor de versiones distintas pierden eventos en silencio**: los esquemas estrictos descartan el payload y la pantalla se queda como estaba. Se acepta porque solo ocurre entre despliegues y las salas en memoria no sobreviven al reinicio.
+
+Resuelto en el Día 6: **el `Origin` de las conexiones ya se valida** contra `PUBLIC_ORIGIN` (§4 Despliegue). Decisiones del Día 6 que aceptan un riesgo:
+
+- **Se asume un solo proxy delante del servidor**: se toma el último valor de `X-Forwarded-For`. Si la plataforma encadena varios proxies, el límite de salas vería la IP de un proxy y compartiría el cupo entre todos; la línea de log de `TRUST_PROXY` existe para comprobarlo antes de la demo (`docs/DEPLOY.md`).
+- **Un cliente que no es navegador puede omitir el `Origin`** y se acepta: no hay forma de impedírselo, y lo que se protege es que una página ajena abra la conexión desde el navegador de alguien. Los límites por socket y por IP siguen aplicando.
+- **Las partidas no sobreviven a un redespliegue ni a un reinicio de la plataforma**: el estado está en memoria. Se despliega fuera de la hora de la partida.

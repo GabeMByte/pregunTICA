@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MODEL, readAiConfig } from './config.js';
+import { DEFAULT_MODEL, readAiConfig, readServerConfig } from './config.js';
 
 describe('SPEC §6 AI configuration from the environment', () => {
   it('without variables: no key, default model, low effort, no warm topics', () => {
@@ -49,5 +49,34 @@ describe('SPEC §6 AI configuration from the environment', () => {
     })();
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).not.toContain('SECRET');
+  });
+});
+
+describe('SPEC §4 Despliegue: server configuration from the environment', () => {
+  it('without variables (development): any origin, no proxy, no static folder', () => {
+    expect(readServerConfig({})).toEqual({ publicOrigin: undefined, trustProxy: false, staticDir: undefined });
+  });
+
+  it('reads the public origin, normalized to scheme, host and port', () => {
+    expect(readServerConfig({ PUBLIC_ORIGIN: 'https://preguntica.onrender.com/' }).publicOrigin).toBe('https://preguntica.onrender.com');
+    expect(readServerConfig({ PUBLIC_ORIGIN: ' http://localhost:8080 ' }).publicOrigin).toBe('http://localhost:8080');
+  });
+
+  it.each(['preguntica.onrender.com', 'ftp://preguntica.example', 'https://preguntica.onrender.com/play', 'https://x.example/?a=1'])(
+    'a public origin that is not just an origin fails at startup (%s)',
+    (value) => {
+      expect(() => readServerConfig({ PUBLIC_ORIGIN: value })).toThrow(/PUBLIC_ORIGIN/);
+    },
+  );
+
+  it('in production, a missing public origin fails at startup: a deploy is never open by mistake', () => {
+    expect(() => readServerConfig({ NODE_ENV: 'production' })).toThrow(/PUBLIC_ORIGIN/);
+    expect(() => readServerConfig({ NODE_ENV: 'production', PUBLIC_ORIGIN: '  ' })).toThrow(/PUBLIC_ORIGIN/);
+    expect(readServerConfig({ NODE_ENV: 'production', PUBLIC_ORIGIN: 'https://a.example' }).publicOrigin).toBe('https://a.example');
+  });
+
+  it('TRUST_PROXY only when exactly "true"; STATIC_DIR as given', () => {
+    expect(readServerConfig({ TRUST_PROXY: 'true', STATIC_DIR: '/app/web' })).toMatchObject({ trustProxy: true, staticDir: '/app/web' });
+    expect(readServerConfig({ TRUST_PROXY: '1', STATIC_DIR: '' })).toMatchObject({ trustProxy: false, staticDir: undefined });
   });
 });

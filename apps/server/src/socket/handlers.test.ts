@@ -479,6 +479,23 @@ describe('SPEC §3 Límites: 5 rooms per IP every 10 minutes', () => {
     expect(await createFrom(h, { 'x-forwarded-for': '198.51.100.1' })).toBe('RATE_LIMITED');
   });
 
+  it('with TRUST_PROXY, each connection logs the address the limiter uses, once', async () => {
+    const log = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const h = await startServer({ trustProxy: true });
+    await createFrom(h, { 'x-forwarded-for': '6.6.6.6, 203.0.113.7' });
+    const lines = log.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('Client address'));
+    expect(lines).toEqual(['Client address: rate-limit key 203.0.113.7 (ip 203.0.113.7), X-Forwarded-For: 6.6.6.6, 203.0.113.7']);
+    log.mockRestore();
+  });
+
+  it('without TRUST_PROXY, nothing about addresses is logged', async () => {
+    const log = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const h = await startServer({ trustProxy: false });
+    await createFrom(h, { 'x-forwarded-for': '203.0.113.7' });
+    expect(log.mock.calls.filter(([line]) => String(line).startsWith('Client address'))).toEqual([]);
+    log.mockRestore();
+  });
+
   it('with TRUST_PROXY, the proxy-appended IP is used and spoofed first values do not help', async () => {
     const h = await startServer({ trustProxy: true });
     for (let i = 0; i < 5; i++) expect(await createFrom(h, { 'x-forwarded-for': `6.6.6.${String(i)}, 203.0.113.1` })).toBe('CREATED');
