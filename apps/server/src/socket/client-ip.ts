@@ -20,6 +20,26 @@ export function getClientIp({ address, headers }: HandshakeInfo, trustProxy: boo
   return last ?? address;
 }
 
+/** Longest X-Forwarded-For kept in the log: a few hops fit, a flood from a client does not. */
+const MAX_LOGGED_HEADER = 200;
+// eslint-disable-next-line no-control-regex -- control characters are exactly what it removes.
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/g;
+
+/** The IP comes from the header too: every part of the line is cleaned and capped. */
+const forLog = (value: string): string => value.replace(CONTROL_CHARACTERS, ' ').slice(0, MAX_LOGGED_HEADER);
+
+/**
+ * The line logged once per connection behind a trusted proxy, to check in production that the
+ * limiter takes the right hop. Only addresses: no nickname, token or other header. The header is
+ * client-controlled, so control characters (fake log lines) are removed and its length capped.
+ */
+export function describeClientAddress(handshake: HandshakeInfo): string {
+  const ip = getClientIp(handshake, true);
+  const header = handshake.headers['x-forwarded-for'];
+  const raw = Array.isArray(header) ? header.join(', ') : (header ?? '');
+  return `Client address: rate-limit key ${forLog(rateLimitKey(ip))} (ip ${forLog(ip)}), X-Forwarded-For: ${raw === '' ? '(none)' : forLog(raw)}`;
+}
+
 const IPV4_MAPPED = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i;
 
 /**

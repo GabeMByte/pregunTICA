@@ -15,7 +15,7 @@ import type { GameState } from '../engine/index.js';
 import { createRateLimiter } from '../rooms/rate-limiter.js';
 import type { RoomChange, RoomRegistry } from '../rooms/room-registry.js';
 import { describeError } from '../ai/safe-log.js';
-import { getClientIp, rateLimitKey } from './client-ip.js';
+import { describeClientAddress, getClientIp, rateLimitKey } from './client-ip.js';
 import { eventsForTransition, snapshotFor, type Message, type Target, type Viewer } from './transitions.js';
 import type { Emitter, GameServer, GameSocket } from './types.js';
 
@@ -136,6 +136,7 @@ export function registerHandlers(io: GameServer, registry: RoomRegistry, options
   const playerSockets = new Map<string, string>();
 
   io.on('connection', (socket: GameSocket) => {
+    if (options.trustProxy) console.info(describeClientAddress(socket.handshake));
     const self = io.to(socket.id);
     // Every attempt counts, failed ones too, so a socket cannot fill rooms or guess codes.
     const joinLimiter = createRateLimiter({ limit: PLAYER_JOIN_LIMIT, windowMs: PLAYER_JOIN_WINDOW_MS });
