@@ -34,6 +34,9 @@ Si el nombre ya está ocupado, Render agrega un sufijo (`NOMBRE-abcd.onrender.co
 6. **Scaling**: 1 instancia, sin autoescalado (ver la advertencia).
 7. **Create Web Service**. Al terminar, abre `https://NOMBRE.onrender.com/health` (debe responder `{"status":"ok"}`) y luego la app.
 
+> [!NOTE]
+> El `Dockerfile` no se ha construido nunca con Docker: se verificó en Node la estructura exacta de la imagen final (mismos archivos, `node dist/index.js`, E2E en verde). **El primer despliegue en Render es el primer `docker build` real**: si falla, el log de build de Render dice en qué paso (lo más probable, `corepack`/`pnpm install` o `pnpm deploy`). Hazlo con tiempo antes de la demo.
+
 ## Alternativas
 
 ### Koyeb
