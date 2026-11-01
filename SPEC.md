@@ -157,6 +157,7 @@ Un jugador expulsado recibe `error KICKED` y sale de la sala; los demás ven el 
 - **Unitarias (Vitest)**: motor del juego con cobertura ≥ 90 %, validación de IA con respuestas simuladas.
 - **E2E (Playwright)**: 1 host + 3 jugadores en contextos separados juegan una partida completa con la IA simulada.
 - **CI (GitHub Actions)**: lint, typecheck, tests unitarios y E2E en cada PR.
+- **Prueba de carga** (script de `apps/server/scripts`, fuera del CI, la corre solo el usuario contra una URL): un host y hasta 50 jugadores bot por Socket.io juegan una partida completa con respuestas de retraso aleatorio; reporta tiempo de unión, latencia entre el `question:start` del host y el de cada jugador, respuestas perdidas (enviadas a tiempo y no contadas en la distribución del reveal) y errores. Crea la sala como el precalentamiento (español, 5 preguntas, media) con un tema de `WARM_TOPICS`, así sale de la caché y no gasta API.
 - **Revisión por IA** de cada PR.
 
 ## 8. Plan de 7 días

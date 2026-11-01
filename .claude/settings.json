@@ -26,7 +26,15 @@
       "PowerShell(*run smoke*)",
       "PowerShell(*scripts/smoke*)",
       "Bash(*dev:lan*)",
-      "PowerShell(*dev:lan*)"
+      "PowerShell(*dev:lan*)",
+      "Bash(*pnpm load*)",
+      "Bash(*run load*)",
+      "Bash(*server load*)",
+      "Bash(*scripts/load.ts*)",
+      "PowerShell(*pnpm load*)",
+      "PowerShell(*run load*)",
+      "PowerShell(*server load*)",
+      "PowerShell(*scripts/load.ts*)"
     ]
   },
   "hooks": {
