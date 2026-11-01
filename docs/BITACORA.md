@@ -82,3 +82,9 @@ Registro de cada funcionalidad y de cómo se usó la IA para construirla. Alimen
 - Archivos tocados: 11
 - Práctica de IA usada: tests primero (reporte y runner confirmados en rojo), runner separado del CLI para probarlo sin red ni API, hook de lint
 - Nota: el script lo corre solo el usuario y quedó en el deny; Claude verificó el runner con el test en memoria, nunca contra una URL. Para no gastar API, la sala se crea con los mismos parámetros del precalentamiento (español, 5 preguntas, media), porque otra cantidad o dificultad no acierta en la caché aunque el tema esté en `WARM_TOPICS`. El hook de lint atrapó un helper de test que ignoraba sus parámetros.
+
+## 2026-11-01 — Prueba de carga contra producción (Render free, 50 jugadores)
+- Tests agregados: 0 (corrida manual del script de carga, registrada en `docs/LOAD.md`)
+- Archivos tocados: 2
+- Práctica de IA usada: script de carga escrito por la IA y ejecutado solo por el usuario (bloqueado para Claude en `.claude/settings.json`)
+- Nota: 50/50 jugadores unidos (p95 321 ms), `question:start` repartido con p95 de 4 ms respecto del host (máx 203 ms), 250/250 respuestas contadas y ningún error en una partida de 43 s. La sala salió de la caché de `WARM_TOPICS` en 535 ms, sin gastar API. Los bots corrieron desde una sola máquina, así que la latencia mide el reparto del servidor y no la red de cada celular.
