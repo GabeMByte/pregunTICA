@@ -3,8 +3,10 @@ import { createServer, type Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
 import { LocalQuestionSource, loadFallbackBanks } from './ai/local-question-source.js';
 import { describeError } from './ai/safe-log.js';
+import { createStaticHandler } from './http/static-files.js';
 import type { QuestionSource } from './rooms/question-source.js';
 import { RoomRegistry, type Scheduler } from './rooms/room-registry.js';
+import { isAllowedOrigin } from './socket/origin.js';
 import { broadcastChange, notifyGenerationError, notifyTopicRejected, registerHandlers } from './socket/handlers.js';
 import type { GameServer } from './socket/types.js';
 
@@ -17,6 +19,10 @@ export interface AppOptions {
   questionSource: QuestionSource;
   clock: () => number;
   scheduler: Scheduler;
+  /** The web build, served on the same port (SPEC §4 Despliegue). Undefined in development: Vite serves it. */
+  staticDir: string | undefined;
+  /** The only origin allowed to open a socket (SPEC §10). Undefined in development: any origin. */
+  publicOrigin: string | undefined;
 }
 
 export interface App {
@@ -52,19 +58,35 @@ export function createApp(overrides: Partial<AppOptions> = {}): App {
     questionSource: overrides.questionSource ?? new LocalQuestionSource(loadFallbackBanks(), secureRandom),
     clock: Date.now,
     scheduler: realScheduler,
+    staticDir: undefined,
+    publicOrigin: undefined,
     ...overrides,
   };
 
+  const serveStatic = options.staticDir === undefined ? undefined : createStaticHandler(options.staticDir);
+
+  // Socket.io answers /socket.io/ before this handler runs.
   const httpServer = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok' }));
       return;
     }
-    res.writeHead(404).end();
+    if (serveStatic === undefined) {
+      res.writeHead(404).end();
+      return;
+    }
+    void serveStatic(req, res);
   });
 
-  const io: GameServer = new Server(httpServer, { maxHttpBufferSize: MAX_MESSAGE_BYTES });
+  const { publicOrigin } = options;
+  const io: GameServer = new Server(httpServer, {
+    maxHttpBufferSize: MAX_MESSAGE_BYTES,
+    ...(publicOrigin === undefined ? {} : { cors: { origin: publicOrigin } }),
+    allowRequest: (req, callback) => {
+      callback(null, isAllowedOrigin(req.headers.origin, publicOrigin));
+    },
+  });
 
   const registry = new RoomRegistry({
     clock: options.clock,
