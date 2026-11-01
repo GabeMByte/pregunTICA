@@ -141,3 +141,42 @@ describe('realScheduler', () => {
     }
   });
 });
+
+describe('SPEC §10: socket connections only from PUBLIC_ORIGIN', () => {
+  const PUBLIC = 'https://preguntica.onrender.com';
+
+  /** Resolves with whether the handshake was accepted; a browser always sends Origin. */
+  function handshake(baseUrl: string, origin: string, transport: 'websocket' | 'polling'): Promise<boolean> {
+    const client: Client = connect(baseUrl, { transports: [transport], forceNew: true, reconnection: false, extraHeaders: { origin } });
+    clients.push(client);
+    return new Promise((resolve) => {
+      client.on('connect', () => {
+        resolve(true);
+      });
+      client.on('connect_error', () => {
+        resolve(false);
+      });
+    });
+  }
+
+  it.each(['websocket', 'polling'] as const)('a page on another site cannot connect (%s)', async (transport) => {
+    const baseUrl = await start({ publicOrigin: PUBLIC });
+    expect(await handshake(baseUrl, 'https://evil.example', transport)).toBe(false);
+  });
+
+  it.each(['websocket', 'polling'] as const)('our own page connects (%s)', async (transport) => {
+    const baseUrl = await start({ publicOrigin: PUBLIC });
+    expect(await handshake(baseUrl, PUBLIC, transport)).toBe(true);
+  });
+
+  it('polling answers CORS only for our own origin', async () => {
+    const baseUrl = await start({ publicOrigin: PUBLIC });
+    const res = await fetch(`${baseUrl}/socket.io/?EIO=4&transport=polling`, { headers: { origin: PUBLIC } });
+    expect(res.headers.get('access-control-allow-origin')).toBe(PUBLIC);
+  });
+
+  it('without PUBLIC_ORIGIN (development) any origin connects, as before', async () => {
+    const baseUrl = await start();
+    expect(await handshake(baseUrl, 'https://evil.example', 'websocket')).toBe(true);
+  });
+});

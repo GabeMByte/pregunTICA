@@ -6,6 +6,7 @@ import { describeError } from './ai/safe-log.js';
 import { createStaticHandler } from './http/static-files.js';
 import type { QuestionSource } from './rooms/question-source.js';
 import { RoomRegistry, type Scheduler } from './rooms/room-registry.js';
+import { isAllowedOrigin } from './socket/origin.js';
 import { broadcastChange, notifyGenerationError, notifyTopicRejected, registerHandlers } from './socket/handlers.js';
 import type { GameServer } from './socket/types.js';
 
@@ -20,6 +21,8 @@ export interface AppOptions {
   scheduler: Scheduler;
   /** The web build, served on the same port (SPEC §4 Despliegue). Undefined in development: Vite serves it. */
   staticDir: string | undefined;
+  /** The only origin allowed to open a socket (SPEC §10). Undefined in development: any origin. */
+  publicOrigin: string | undefined;
 }
 
 export interface App {
@@ -56,6 +59,7 @@ export function createApp(overrides: Partial<AppOptions> = {}): App {
     clock: Date.now,
     scheduler: realScheduler,
     staticDir: undefined,
+    publicOrigin: undefined,
     ...overrides,
   };
 
@@ -75,7 +79,14 @@ export function createApp(overrides: Partial<AppOptions> = {}): App {
     void serveStatic(req, res);
   });
 
-  const io: GameServer = new Server(httpServer, { maxHttpBufferSize: MAX_MESSAGE_BYTES });
+  const { publicOrigin } = options;
+  const io: GameServer = new Server(httpServer, {
+    maxHttpBufferSize: MAX_MESSAGE_BYTES,
+    ...(publicOrigin === undefined ? {} : { cors: { origin: publicOrigin } }),
+    allowRequest: (req, callback) => {
+      callback(null, isAllowedOrigin(req.headers.origin, publicOrigin));
+    },
+  });
 
   const registry = new RoomRegistry({
     clock: options.clock,
