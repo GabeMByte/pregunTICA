@@ -3,6 +3,7 @@ import { createServer, type Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
 import { LocalQuestionSource, loadFallbackBanks } from './ai/local-question-source.js';
 import { describeError } from './ai/safe-log.js';
+import { createStaticHandler } from './http/static-files.js';
 import type { QuestionSource } from './rooms/question-source.js';
 import { RoomRegistry, type Scheduler } from './rooms/room-registry.js';
 import { broadcastChange, notifyGenerationError, notifyTopicRejected, registerHandlers } from './socket/handlers.js';
@@ -17,6 +18,8 @@ export interface AppOptions {
   questionSource: QuestionSource;
   clock: () => number;
   scheduler: Scheduler;
+  /** The web build, served on the same port (SPEC §4 Despliegue). Undefined in development: Vite serves it. */
+  staticDir: string | undefined;
 }
 
 export interface App {
@@ -52,16 +55,24 @@ export function createApp(overrides: Partial<AppOptions> = {}): App {
     questionSource: overrides.questionSource ?? new LocalQuestionSource(loadFallbackBanks(), secureRandom),
     clock: Date.now,
     scheduler: realScheduler,
+    staticDir: undefined,
     ...overrides,
   };
 
+  const serveStatic = options.staticDir === undefined ? undefined : createStaticHandler(options.staticDir);
+
+  // Socket.io answers /socket.io/ before this handler runs.
   const httpServer = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok' }));
       return;
     }
-    res.writeHead(404).end();
+    if (serveStatic === undefined) {
+      res.writeHead(404).end();
+      return;
+    }
+    void serveStatic(req, res);
   });
 
   const io: GameServer = new Server(httpServer, { maxHttpBufferSize: MAX_MESSAGE_BYTES });
