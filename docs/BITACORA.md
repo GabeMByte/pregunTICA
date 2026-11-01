@@ -77,6 +77,17 @@ Registro de cada funcionalidad y de cómo se usó la IA para construirla. Alimen
 - Práctica de IA usada: modo plan, tests primero en el núcleo, guardia de literales con la API del compilador de TypeScript, revisión visual con Playwright en ambos idiomas
 - Nota: el inventario inicial de la guardia encontró 61 literales. Al reforzarla salió que la primera versión no detectaba ternarios (`{ok ? 'Listo' : '…'}`) y además daba un falso positivo con comparaciones dentro de `&&`. Las capturas en inglés mostraron el selector encima del wordmark del host a 375 px, y se corrigió antes del commit. No hizo falta tocar `packages/shared` ni el servidor: los fallos del cliente pasaron a tener códigos propios solo en web.
 
+## 2026-11-01 — Prueba de carga con 50 jugadores bot
+- Tests agregados: 10 (6 del reporte y 4 de integración que juegan una partida completa con 50 bots contra el servidor en memoria con el banco local)
+- Archivos tocados: 11
+- Práctica de IA usada: tests primero (reporte y runner confirmados en rojo), runner separado del CLI para probarlo sin red ni API, hook de lint
+- Nota: el script lo corre solo el usuario y quedó en el deny; Claude verificó el runner con el test en memoria, nunca contra una URL. Para no gastar API, la sala se crea con los mismos parámetros del precalentamiento (español, 5 preguntas, media), porque otra cantidad o dificultad no acierta en la caché aunque el tema esté en `WARM_TOPICS`. El hook de lint atrapó un helper de test que ignoraba sus parámetros.
+
+## 2026-11-01 — Prueba de carga contra producción (Render free, 50 jugadores)
+- Tests agregados: 0 (corrida manual del script de carga, registrada en `docs/LOAD.md`)
+- Archivos tocados: 2
+- Práctica de IA usada: script de carga escrito por la IA y ejecutado solo por el usuario (bloqueado para Claude en `.claude/settings.json`)
+- Nota: 50/50 jugadores unidos (p95 321 ms), `question:start` repartido con p95 de 4 ms respecto del host (máx 203 ms), 250/250 respuestas contadas y ningún error en una partida de 43 s. La sala salió de la caché de `WARM_TOPICS` en 535 ms, sin gastar API. Los bots corrieron desde una sola máquina, así que la latencia mide el reparto del servidor y no la red de cada celular.
 ## 2026-11-01 — Preparación del despliegue (imagen Docker, origen limitado, log del proxy)
 - Tests agregados: 46 en el servidor (estáticos con fallback SPA y protección contra path traversal, configuración y `PUBLIC_ORIGIN`, rechazo de orígenes ajenos por WebSocket y polling con clientes reales, línea de log del proxy) y una configuración de Playwright para correr el E2E contra el contenedor
 - Archivos tocados: 19

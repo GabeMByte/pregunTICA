@@ -15,7 +15,8 @@
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm --filter @preguntica/web build && pnpm --filter @preguntica/server build",
     "eval:questions": "pnpm --filter @preguntica/server eval:questions",
-    "smoke": "pnpm --filter @preguntica/server smoke"
+    "smoke": "pnpm --filter @preguntica/server smoke",
+    "load": "pnpm --filter @preguntica/server load"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
