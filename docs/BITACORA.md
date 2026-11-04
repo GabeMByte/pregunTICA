@@ -93,3 +93,9 @@ Registro de cada funcionalidad y de cómo se usó la IA para construirla. Alimen
 - Archivos tocados: 19
 - Práctica de IA usada: modo plan, TDD en el servidor (cada test confirmado en rojo antes de implementar), E2E autónomo contra el build de producción
 - Nota: la investigación previa mostró que limitar CORS no bastaba para cerrar el riesgo de `Origin`, porque un upgrade WebSocket no pasa por CORS; por eso el handshake valida el `Origin` por su cuenta. El test del log atrapó que la IP del header también podía traer saltos de línea y texto enorme, y hubo que corregir a mano un script que escribió caracteres de control reales en vez de sus escapes. Docker no estaba instalado en la máquina: se verificó la estructura exacta de la imagen final (`pnpm deploy --prod`, `node dist/index.js`, sin clave) con el E2E en verde (7/7), y quedó pendiente construir la imagen real con `docker build`.
+
+## 2026-11-04 — CI en `master` y job de E2E
+- Tests agregados: 0 (el CI ahora corre los 7 E2E de Playwright que ya existían)
+- Archivos tocados: 2
+- Práctica de IA usada: verificación autónoma contra el repositorio
+- Nota: escribir el README reveló que el CI escuchaba `push` a `main` en un repo cuya rama es `master`, así que nunca corría después de un merge, y que no corría el E2E que pide SPEC §7. Ahora corre en `push` a `master` y en cada PR, con un job de E2E con `ANTHROPIC_API_KEY` vacía, la caché de pnpm y los navegadores de Playwright guardados en caché según su versión.
