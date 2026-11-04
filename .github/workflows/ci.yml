@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 concurrency:
@@ -11,6 +11,10 @@ concurrency:
 
 permissions:
   contents: read
+
+# CLAUDE.md rule 7: CI never calls the real API. A blank key means "local bank only".
+env:
+  ANTHROPIC_API_KEY: ''
 
 jobs:
   check:
@@ -35,3 +39,51 @@ jobs:
       - run: pnpm typecheck
 
       - run: pnpm test
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The browser cache is keyed by the exact Playwright version in the lockfile.
+      - name: Get Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter @preguntica/e2e exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @preguntica/e2e exec playwright install --with-deps chromium
+
+      # The browser comes from the cache, but its system libraries are not cached.
+      - name: Install Chromium system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @preguntica/e2e exec playwright install-deps chromium
+
+      # playwright.config.ts starts its own server and web app on 3100/5174 with the key blank.
+      - run: pnpm test:e2e
+
+      - name: Upload traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: e2e/test-results/
+          retention-days: 7
