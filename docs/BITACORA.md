@@ -94,6 +94,12 @@ Registro de cada funcionalidad y de cómo se usó la IA para construirla. Alimen
 - Práctica de IA usada: modo plan, TDD en el servidor (cada test confirmado en rojo antes de implementar), E2E autónomo contra el build de producción
 - Nota: la investigación previa mostró que limitar CORS no bastaba para cerrar el riesgo de `Origin`, porque un upgrade WebSocket no pasa por CORS; por eso el handshake valida el `Origin` por su cuenta. El test del log atrapó que la IP del header también podía traer saltos de línea y texto enorme, y hubo que corregir a mano un script que escribió caracteres de control reales en vez de sus escapes. Docker no estaba instalado en la máquina: se verificó la estructura exacta de la imagen final (`pnpm deploy --prod`, `node dist/index.js`, sin clave) con el E2E en verde (7/7), y quedó pendiente construir la imagen real con `docker build`.
 
+## 2026-11-04 — README del repositorio
+- Tests agregados: 0 (documentación; se corrieron `pnpm test` con 1103 en verde, cobertura del motor 99.38 % sentencias y 97.67 % ramas, y `pnpm test:e2e` 7/7 para usar números reales)
+- Archivos tocados: 7 (README, bitácora, la captura del lobby y el servidor, la config, la prueba y el tsconfig que la generan)
+- Práctica de IA usada: verificación autónoma contra el repositorio (cada ruta, comando y variable comprobados; el Mermaid validado con mermaid 11 en Chromium headless)
+- Nota: al verificar salieron tres cosas que no estaban a la vista: no hay archivo LICENSE (el usuario eligió "todos los derechos reservados"), la URL de producción responde "Service Suspended", y el CI solo corre en pull requests porque el `push` apunta a `main` y la rama es `master`; tampoco corre el E2E que pide SPEC §7. La captura del lobby mostraba el aviso de preguntas de respaldo; se regeneró con un servidor que etiqueta el banco local como `ai`, sin cliente de Anthropic ni `.env`.
+
 ## 2026-11-04 — CI en `master` y job de E2E
 - Tests agregados: 0 (el CI ahora corre los 7 E2E de Playwright que ya existían)
 - Archivos tocados: 2
