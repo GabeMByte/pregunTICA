@@ -104,10 +104,10 @@ Measured on 2026-11-04 on the `master` branch:
 |---|---|
 | Unit tests (Vitest, `pnpm test`) | **1103 passing**: 695 server, 334 web, 74 shared |
 | Game engine coverage | 99.38 % statements, 97.67 % branches, 100 % functions, 100 % lines (minimum 90 %) |
-| E2E (Playwright, `pnpm test:e2e`) | 7 passing, plus screenshot suites that play full games with several phones, a late joiner and a reconnection |
+| E2E (Playwright, `pnpm test:e2e`) | 7 passing, also in CI, plus screenshot suites that play full games with several phones, a late joiner and a reconnection |
 | Load test on Render free ([docs/LOAD.md](docs/LOAD.md)) | 50/50 players joined (p95 321 ms), questions reached all players with p95 4 ms after the host, 250/250 answers counted, 0 errors |
 
-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint, typecheck and unit tests on every pull request. The load test ran all bots from one machine, so it measures how fast the server fans out events, not phone network latency.
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every push to `master` and every pull request, in two jobs: lint, typecheck and unit tests, and the Playwright E2E tests with the API key blank, so CI never calls the real API. The load test ran all bots from one machine, so it measures how fast the server fans out events, not phone network latency.
 
 ## Tech stack
 

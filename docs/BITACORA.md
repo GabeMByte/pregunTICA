@@ -96,6 +96,12 @@ Registro de cada funcionalidad y de cómo se usó la IA para construirla. Alimen
 
 ## 2026-11-04 — README del repositorio
 - Tests agregados: 0 (documentación; se corrieron `pnpm test` con 1103 en verde, cobertura del motor 99.38 % sentencias y 97.67 % ramas, y `pnpm test:e2e` 7/7 para usar números reales)
-- Archivos tocados: 2
+- Archivos tocados: 7 (README, bitácora, la captura del lobby y el servidor, la config, la prueba y el tsconfig que la generan)
 - Práctica de IA usada: verificación autónoma contra el repositorio (cada ruta, comando y variable comprobados; el Mermaid validado con mermaid 11 en Chromium headless)
-- Nota: al verificar salieron tres cosas que no estaban a la vista: no hay archivo LICENSE (el usuario eligió "todos los derechos reservados"), la URL de producción responde "Service Suspended", y el CI solo corre en pull requests porque el `push` apunta a `main` y la rama es `master`; tampoco corre el E2E que pide SPEC §7.
+- Nota: al verificar salieron tres cosas que no estaban a la vista: no hay archivo LICENSE (el usuario eligió "todos los derechos reservados"), la URL de producción responde "Service Suspended", y el CI solo corre en pull requests porque el `push` apunta a `main` y la rama es `master`; tampoco corre el E2E que pide SPEC §7. La captura del lobby mostraba el aviso de preguntas de respaldo; se regeneró con un servidor que etiqueta el banco local como `ai`, sin cliente de Anthropic ni `.env`.
+
+## 2026-11-04 — CI en `master` y job de E2E
+- Tests agregados: 0 (el CI ahora corre los 7 E2E de Playwright que ya existían)
+- Archivos tocados: 2
+- Práctica de IA usada: verificación autónoma contra el repositorio
+- Nota: escribir el README reveló que el CI escuchaba `push` a `main` en un repo cuya rama es `master`, así que nunca corría después de un merge, y que no corría el E2E que pide SPEC §7. Ahora corre en `push` a `master` y en cada PR, con un job de E2E con `ANTHROPIC_API_KEY` vacía, la caché de pnpm y los navegadores de Playwright guardados en caché según su versión.
