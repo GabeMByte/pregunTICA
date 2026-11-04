@@ -13,6 +13,7 @@
     "tests",
     "screenshots",
     "player-screenshots",
+    "readme",
     "*.config.ts"
   ]
 }

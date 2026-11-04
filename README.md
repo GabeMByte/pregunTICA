@@ -8,7 +8,7 @@ Live trivia on any topic, written by AI in seconds.
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/en/host/03-lobby-projector.png" alt="Projector lobby with the join QR, the room code and five players" height="260"><br>Lobby on the projector: scan the QR to join</td>
+    <td align="center"><img src="docs/screenshots/en/readme-lobby-projector.png" alt="Projector lobby with the join QR, the room code and five players" height="260"><br>Lobby on the projector: scan the QR to join</td>
     <td align="center"><img src="docs/screenshots/en/player/question.png" alt="Question on a phone with four options marked by color, shape and letter" height="260"><br>Question on a phone</td>
   </tr>
   <tr>
